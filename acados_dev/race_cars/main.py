@@ -65,10 +65,10 @@ t_feedback = np.zeros((Nsim))
 
 
 # initialize obstacles trajectory
-obbX = np.tile(np.array([np.random.normal(0.5, 0.02), 0.0, -np.pi, 0.1, 0, 0]), (N , 1))#distance*2
+obbX = np.tile(np.array([-5, 0.0, -np.pi, 0.0, 0, 0]), (N , 1))#distance*2
 
 # load model
-constraint, model, acados_solver = acados_settings(Tf, N, track, obbX[0, :])
+constraint, model, acados_solver = acados_settings(Tf, N, track)
 
 # dimensions
 nx = model.x.rows()
@@ -113,11 +113,11 @@ for i in tqdm.tqdm(range(Nsim)):
         # update obstacle prediction
         obbX[j, 0] = obbX[0, 0] + obbX[0, 3]* np.cos(obbX[0, 2]) * j*dt 
         obbX[j, 3] = obbX[0, 3]
-        acados_solver.set(j, "p", obbX[j, :])
+        # acados_solver.set(j, "p", obbX[j, :])
     obbX_N = obbX[j]
     obbX_N[0] = obbX[0, 0] + obbX[0, 3]* np.cos(obbX[0, 2]) * N*dt
     obbX_N[3] = obbX[0, 3]
-    acados_solver.set(N, "p", obbX_N)
+    # acados_solver.set(N, "p", obbX_N)
 
     yref_N = np.array([sref, 0, 0, 0, 0, 0])
     # yref_N=np.array([0,0,0,0,0,0])
@@ -157,7 +157,7 @@ for i in tqdm.tqdm(range(Nsim)):
     for j in range(nx):
         simX[i, j] = x0[j]
         simobbX[i, j] = obbX[0, j]
-    simobbX[i,:2] += np.random.normal(0, 0.01, 2)
+    # simobbX[i,:2] += np.random.normal(0, 0.01, 2)
     for j in range(nu):
         simU[i, j] = u0[j]
 
@@ -191,7 +191,7 @@ t = np.linspace(0.0, Nsim * Tf / N, Nsim)
 plotRes(simX, simU, t)
 with sns.axes_style("whitegrid"):
     fig,(ax1,ax2) = plt.subplots(1,2)
-    plotSimu(simX,t,simobbX, constraint,track, (ax1,ax2))
+    # plotSimu(simX,t,simobbX, constraint,track, (ax1,ax2))
 
     plotTrackProj(np.dstack([simX, simobbX]), track)
     # fig.suptitle('simulated racing car')

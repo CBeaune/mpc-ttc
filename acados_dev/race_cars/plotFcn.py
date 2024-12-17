@@ -60,8 +60,9 @@ def plotTrackProj(trajectories,filename='LMS_Track.txt',ax=None):
 
         # Plot center line
         [Sref,Xref,Yref,Psiref,_]=getTrack(filename)
-        ax.plot(Xref[0:17],Yref[0:17],'-',color='k',linewidth=0.5)
-        ax.plot(Xref[200:],Yref[200:],'-',color='k',linewidth=0.5)
+        ax.plot(Xref,Yref,'-',color='k',linewidth=0.5)
+        # ax.plot(Xref[0:17],Yref[0:17],'-',color='k',linewidth=0.5)
+        # ax.plot(Xref[200:],Yref[200:],'-',color='k',linewidth=0.5)
 
         # Draw Trackboundaries
         Xboundleft=Xref-distance*np.sin(Psiref)
@@ -72,14 +73,14 @@ def plotTrackProj(trajectories,filename='LMS_Track.txt',ax=None):
         Ybound_otherlaneleft=Yref+2*distance*np.cos(Psiref)
         Xbound_otherright=Xref-3*distance*np.sin(Psiref)
         Ybound_otherright=Yref+3*distance*np.cos(Psiref)
-        ax.plot(Xboundleft[0:17],Yboundleft[0:17],'k--',linewidth=2)
-        ax.plot(Xboundleft[200:],Yboundleft[200:],'k--',linewidth=2)
-        ax.plot(Xboundright[0:17],Yboundright[0:17],color='k',linewidth=2)
-        ax.plot(Xboundright[200:],Yboundright[200:],color='k',linewidth=2)
-        ax.plot(Xbound_otherlaneleft[0:17],Ybound_otherlaneleft[0:17],'k-',linewidth=0.5)
-        ax.plot(Xbound_otherlaneleft[200:],Ybound_otherlaneleft[200:],'k-',linewidth=0.5)
-        ax.plot(Xbound_otherright[0:17],Ybound_otherright[0:17],'k-',linewidth=2)
-        ax.plot(Xbound_otherright[200:],Ybound_otherright[200:],'k-',linewidth=2)
+        ax.plot(Xboundleft,Yboundleft,'k--',linewidth=2)
+        # ax.plot(Xboundleft[200:],Yboundleft[200:],'k--',linewidth=2)
+        ax.plot(Xboundright,Yboundright,color='k',linewidth=2)
+        # ax.plot(Xboundright[200:],Yboundright[200:],color='k',linewidth=2)
+        ax.plot(Xbound_otherlaneleft,Ybound_otherlaneleft,'k-',linewidth=0.5)
+        # ax.plot(Xbound_otherlaneleft[200:],Ybound_otherlaneleft[200:],'k-',linewidth=0.5)
+        ax.plot(Xbound_otherright,Ybound_otherright,'k-',linewidth=2)
+        # ax.plot(Xbound_otherright[200:],Ybound_otherright[200:],'k-',linewidth=2)
         
 
         # Draw driven trajectory

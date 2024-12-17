@@ -30,14 +30,13 @@
 
 # author: Daniel Kloeser
 
-from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
 from bicycle_model import bicycle_model
-from integrator_experiment import setup_acados_integrator, IntegratorSetting
 import scipy.linalg
 import numpy as np
 
 
-def acados_settings(Tf, N, track_file, obbX=np.array([0, 0, 0, 0, 0])):
+def acados_settings(Tf, N, track_file):
     # create render arguments
     ocp = AcadosOcp()
 
@@ -70,26 +69,17 @@ def acados_settings(Tf, N, track_file, obbX=np.array([0, 0, 0, 0, 0])):
     nsh = nh
     ns = nsh + nsbx
 
-    # parameters
-    n_params = 5 #model.p.size()[0]
-    ocp.dims.np = n_params
-    ocp.parameter_values = obbX
-
     # discretization
     ocp.solver_options.N_horizon = N
 
     # set cost
-    Q = np.diag([ 1e1, 1e1, 1e-8, 1e1, 1e-3, 5e0 ])
-    # Q = np.diag([ 1e-1, 1e1, 1e-8, 1e-8, 1e-3, 1e-3 ]) # without ttc
-
+    Q = np.diag([ 1e-1, 1e-8, 1e-8, 1e-8, 1e-3, 5e-3 ])
 
     R = np.eye(nu)
     R[0, 0] = 1e-3
     R[1, 1] = 5e-3
 
-    Qe = np.diag([ 5e0, 1e1, 1e-8, 1e-8, 5e-3, 2e0 ])
-    # Qe = np.diag([ 5e0, 1e1, 1e-8, 1e-8, 5e-3, 2e0 ]) # without ttc
-
+    Qe = np.diag([ 5e0, 1e1, 1e-8, 1e-8, 5e-3, 2e-3 ])
 
     ocp.cost.cost_type = "LINEAR_LS"
     ocp.cost.cost_type_e = "LINEAR_LS"
@@ -139,8 +129,6 @@ def acados_settings(Tf, N, track_file, obbX=np.array([0, 0, 0, 0, 0])):
             model.n_min,
             model.throttle_min,
             model.delta_min,
-            constraint.dist_min,
-            # constraint.ttc_min,
         ]
     )
     ocp.constraints.uh = np.array(
@@ -150,8 +138,6 @@ def acados_settings(Tf, N, track_file, obbX=np.array([0, 0, 0, 0, 0])):
             model.n_max,
             model.throttle_max,
             model.delta_max,
-            1e15,
-            # 1e15
         ]
     )
     ocp.constraints.lsh = np.zeros(nsh)
@@ -165,21 +151,17 @@ def acados_settings(Tf, N, track_file, obbX=np.array([0, 0, 0, 0, 0])):
     ocp.solver_options.tf = Tf
     # ocp.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES'
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
-    ocp.solver_options.nlp_solver_type = "SQP_RTI"
+    ocp.solver_options.nlp_solver_type = "SQP"
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
-
-    ocp.solver_options.timeout_max_time = 1e-1
     # ocp.solver_options.nlp_solver_step_length = 0.05
-    # ocp.solver_options.nlp_solver_max_iter = 200
-    # ocp.solver_options.tol = 1e-4
+    ocp.solver_options.nlp_solver_max_iter = 200
+    ocp.solver_options.tol = 1e-4
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
     acados_solver = AcadosOcpSolver(ocp, json_file="acados_ocp.json")
-
-    # integrator = AcadosSimSolver(ocp, json_file="acados_ocp.json")
 
     return constraint, model, acados_solver
