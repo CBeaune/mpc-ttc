@@ -42,30 +42,38 @@ def plotTrackProj(simX,filename='LMS_Track.txt', T_opt=None):
     n=simX[:,1]
     alpha=simX[:,2]
     v=simX[:,3]
-    distance=0.12
     # transform data
     [x, y, _, _] = transformProj2Orig(s, n, alpha, v,filename)
     # plot racetrack map
 
     #Setup plot
     plt.figure()
-    plt.ylim(bottom=-1.75,top=0.35)
-    plt.xlim(left=-1.1,right=1.6)
+    plt.ylim(bottom=-3.0,top=0.5)
+    plt.xlim(left=-1.75,right=1.75)
     plt.ylabel('y[m]')
     plt.xlabel('x[m]')
 
     # Plot center line
     [Sref,Xref,Yref,Psiref,_]=getTrack(filename)
-    plt.plot(Xref,Yref,'--',color='k')
+    plt.plot(Xref,Yref,'-',color='k',linewidth=.5)
 
     # Draw Trackboundaries
-    Xboundleft=Xref-distance*np.sin(Psiref)
-    Yboundleft=Yref+distance*np.cos(Psiref)
-    Xboundright=Xref+distance*np.sin(Psiref)
-    Yboundright=Yref-distance*np.cos(Psiref)
-    plt.plot(Xboundleft,Yboundleft,color='k',linewidth=1)
-    plt.plot(Xboundright,Yboundright,color='k',linewidth=1)
+    track_width = 0.25
+    Xboundleft=Xref-track_width/2*np.sin(Psiref)
+    Yboundleft=Yref+track_width/2*np.cos(Psiref)
+    Xboundright=Xref+track_width/2*np.sin(Psiref)
+    Yboundright=Yref-track_width/2*np.cos(Psiref)
+    plt.plot(Xboundleft,Yboundleft,'--',color='k',linewidth=2)
+    plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
     plt.plot(x,y, '-b')
+
+    # Draw opposite lane
+    Xboundleft=Xref-track_width*np.sin(Psiref)
+    Yboundleft=Yref+track_width*np.cos(Psiref)
+    Xboundright=Xref-3*track_width/2*np.sin(Psiref)
+    Yboundright=Yref+3*track_width/2*np.cos(Psiref)
+    plt.plot(Xboundleft,Yboundleft,color='k',linewidth=0.5)
+    plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
 
     # Draw driven trajectory
     heatmap = plt.scatter(x,y, c=v, cmap=cm.rainbow, edgecolor='none', marker='o')

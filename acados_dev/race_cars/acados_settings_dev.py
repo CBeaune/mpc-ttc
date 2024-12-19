@@ -73,7 +73,7 @@ def acados_settings(Tf, N, track_file):
     ocp.solver_options.N_horizon = N
 
     # set cost
-    Q = np.diag([ 1e-1, 1e1, 1e-8, 1e-8, 1e-3, 5e-3 ])
+    Q = np.diag([ 1e-1, 1e1, 1e-8, 1e-8, 1e-3, 5e-3 ]) 
 
     R = np.eye(nu)
     R[0, 0] = 1e-3
@@ -151,7 +151,7 @@ def acados_settings(Tf, N, track_file):
     ocp.solver_options.tf = Tf
     # ocp.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES'
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
-    ocp.solver_options.nlp_solver_type = "SQP"
+    ocp.solver_options.nlp_solver_type = "SQP_RTI"
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4

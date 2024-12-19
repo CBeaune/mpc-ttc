@@ -110,8 +110,9 @@ def bicycle_model(track="LMS_Track.txt"):
     a_long = Fxd / m
 
     # Model bounds
-    model.n_min = -0.12  # width of the track [m]
-    model.n_max = 0.12  # width of the track [m]
+    track_width = 0.25
+    model.n_min = -track_width/2  # right border of the track [m]
+    model.n_max = track_width  # middle of the opposite lane [m]
 
     # state bounds
     model.throttle_min = -1.0
@@ -134,7 +135,7 @@ def bicycle_model(track="LMS_Track.txt"):
     constraint.along_max = 4  # maximum lateral force [m/s^2]
 
     # Define initial conditions
-    model.x0 = np.array([3.0, 0, 0, 0, 0, 0])
+    model.x0 = np.array([-3, 0, 0, 0, 0, 0])
 
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])

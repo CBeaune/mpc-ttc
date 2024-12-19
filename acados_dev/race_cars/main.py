@@ -47,10 +47,11 @@ The simulation starts at s=-2m until one round is completed(s=8.71m). The beginn
 track = "LMS_Track6.txt"
 [Sref, _, _, _, _] = getTrack(track)
 
-Tf = 2.0  # prediction horizon
-N = 50  # number of discretization steps
+Tf = 7.0  # prediction horizon
+N = 100  # number of discretization steps
 T = 20.00  # maximum simulation time[s]
-sref_N = 0.25*Tf # reference for final reference progress
+vref = 0.25 # reference velocity
+sref_N = vref*Tf # reference for final reference progress
 
 # load model
 constraint, model, acados_solver = acados_settings(Tf, N, track)
