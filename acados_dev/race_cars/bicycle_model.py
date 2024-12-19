@@ -46,10 +46,10 @@ def bicycle_model(track="LMS_Track.txt"):
     length = len(s0)
     pathlength = s0[-1]
     # copy loop to beginning and end
-    s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
-    kapparef = np.append(kapparef, kapparef[1:length])
-    s0 = np.append([-s0[length - 2] + s0[length - 81 : length - 2]], s0)
-    kapparef = np.append(kapparef[length - 80 : length - 1], kapparef)
+    # s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
+    # kapparef = np.append(kapparef, kapparef[1:length])
+    # s0 = np.append([-s0[length - 2] + s0[length - 81 : length - 2]], s0)
+    # kapparef = np.append(kapparef[length - 80 : length - 1], kapparef)
 
     # compute spline interpolations
     kapparef_s = interpolant("kapparef_s", "bspline", [s0], kapparef)
@@ -134,7 +134,7 @@ def bicycle_model(track="LMS_Track.txt"):
     constraint.along_max = 4  # maximum lateral force [m/s^2]
 
     # Define initial conditions
-    model.x0 = np.array([-2, 0, 0, 0, 0, 0])
+    model.x0 = np.array([3.0, 0, 0, 0, 0, 0])
 
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])

@@ -73,7 +73,7 @@ def acados_settings(Tf, N, track_file):
     ocp.solver_options.N_horizon = N
 
     # set cost
-    Q = np.diag([ 1e-1, 1e-8, 1e-8, 1e-8, 1e-3, 5e-3 ])
+    Q = np.diag([ 1e-1, 1e1, 1e-8, 1e-8, 1e-3, 5e-3 ])
 
     R = np.eye(nu)
     R[0, 0] = 1e-3
