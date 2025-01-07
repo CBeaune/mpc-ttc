@@ -7,3 +7,5 @@ __pycache__*
 *.m
 *.asv
 c_generated_code
+results/*
+.gitignore
