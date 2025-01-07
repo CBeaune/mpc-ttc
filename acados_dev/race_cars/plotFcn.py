@@ -33,21 +33,15 @@
 from tracks.readDataFcn import getTrack
 from time2spatial import transformProj2Orig,transformOrig2Proj
 from matplotlib import cm
+import matplotlib.animation as animation
+from matplotlib.animation import PillowWriter
+
 import matplotlib.pyplot as plt
 import numpy as np
+import tqdm
 
-def plotTrackProj(simX,filename='LMS_Track.txt', T_opt=None):
-    # load track
-    s=simX[:,0]
-    n=simX[:,1]
-    alpha=simX[:,2]
-    v=simX[:,3]
-    # transform data
-    [x, y, _, _] = transformProj2Orig(s, n, alpha, v,filename)
-    # plot racetrack map
-
-    #Setup plot
-    plt.figure()
+def initplot(filename='LMS_Track.txt'):
+        #Setup plot
     plt.ylim(bottom=-3.0,top=0.5)
     plt.xlim(left=-1.75,right=1.75)
     plt.ylabel('y[m]')
@@ -58,14 +52,13 @@ def plotTrackProj(simX,filename='LMS_Track.txt', T_opt=None):
     plt.plot(Xref,Yref,'-',color='k',linewidth=.5)
 
     # Draw Trackboundaries
-    track_width = 0.25
+    track_width = 0.3
     Xboundleft=Xref-track_width/2*np.sin(Psiref)
     Yboundleft=Yref+track_width/2*np.cos(Psiref)
     Xboundright=Xref+track_width/2*np.sin(Psiref)
     Yboundright=Yref-track_width/2*np.cos(Psiref)
     plt.plot(Xboundleft,Yboundleft,'--',color='k',linewidth=2)
     plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
-    plt.plot(x,y, '-b')
 
     # Draw opposite lane
     Xboundleft=Xref-track_width*np.sin(Psiref)
@@ -75,32 +68,155 @@ def plotTrackProj(simX,filename='LMS_Track.txt', T_opt=None):
     plt.plot(Xboundleft,Yboundleft,color='k',linewidth=0.5)
     plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
 
-    # Draw driven trajectory
-    heatmap = plt.scatter(x,y, c=v, cmap=cm.rainbow, edgecolor='none', marker='o')
-    cbar = plt.colorbar(heatmap, fraction=0.035)
-    cbar.set_label("velocity in [m/s]")
-    ax = plt.gca()
+def plotTrackProj(traj, pred=[], filename='LMS_Track.txt', T_opt=None, save_name='track_animation'):
+    # load track
+    simX = traj[0]
+    if pred != []:
+        predX = pred[0]
+        print(predX.shape)
+    if traj.shape[0] > 1:
+        simobbX = traj[1]
+    if pred.shape[0] > 1:
+        predobbX = pred[1]
+        print(predobbX.shape)
+    s = simX[:,0]
+    n = simX[:,1]
+    alpha = simX[:,2]
+    v = simX[:,3]
+    # transform data
+    [x, y, alpha, _] = transformProj2Orig(s, n, alpha, v, filename)
+
+    # Draw obstacle
+    if traj.shape[0] > 1:
+        xobb = simobbX[:,0]
+        yobb = simobbX[:,1]
+        psi_obb = simobbX[:,2]
+        v = simobbX[:,3]
+
+    # plot racetrack map
+    fig, ax = plt.subplots(figsize=(10, 10))
+    initplot(filename)
+
+    heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
+    heatmap.set_clim(0, 0.25)
+    color_pred = cm.plasma(np.linspace(0, 1, predX.shape[1]))
     ax.set_aspect('equal', 'box')
 
-    # # Put markers for s values
-    # xi=np.zeros(9)
-    # yi=np.zeros(9)
-    # xi1=np.zeros(9)
-    # yi1=np.zeros(9)
-    # xi2=np.zeros(9)
-    # yi2=np.zeros(9)
-    # for i in range(int(Sref[-1]) + 1):
-    #     try:
-    #         k = list(Sref).index(i + min(abs(Sref - i)))
-    #     except:
-    #         k = list(Sref).index(i - min(abs(Sref - i)))
-    #     [_,nrefi,_,_]=transformOrig2Proj(Xref[k],Yref[k],Psiref[k],0)
-    #     [xi[i],yi[i],_,_]=transformProj2Orig(Sref[k],nrefi+0.24,0,0)
-    #     # plt.text(xi[i], yi[i], f'{i}m', fontsize=12,horizontalalignment='center',verticalalignment='center')
-    #     plt.text(xi[i], yi[i], '{}m'.format(i), fontsize=12,horizontalalignment='center',verticalalignment='center')
-    #     [xi1[i],yi1[i],_,_]=transformProj2Orig(Sref[k],nrefi+0.12,0,0)
-    #     [xi2[i],yi2[i],_,_]=transformProj2Orig(Sref[k],nrefi+0.15,0,0)
-    #     plt.plot([xi1[i],xi2[i]],[yi1[i],yi2[i]],color='black')
+    # Prepare objects for updating instead of re-creating
+    line, = ax.plot([], [], '-b')
+    pred_dots = [ax.plot([], [], 'o', color='r', markersize=3)[0] for _ in range(predX.shape[1])]
+    pred_circles = [plt.Circle((x[0], y[0]), 0.145602198, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[1])]
+    pred_rects = [plt.Rectangle((x[0]- simobbX[0, 4]/2,y[0]- simobbX[0, 5]/2), simobbX[0, 4], simobbX[0, 5], angle = alpha[0]*180/np.pi,  fill=False, rotation_point = 'center', color=color_pred[j])
+                   for j in range(predX.shape[1])]
+
+    pred_obb_circles = [plt.Circle((xobb[0], yobb[0]), 0.145602198, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[1])]
+    pred_obb_rects = [plt.Rectangle((xobb[0]- simobbX[0, 4]/2, yobb[0]- simobbX[0, 5]/2), simobbX[0, 4], simobbX[0, 5], angle = psi_obb[0]*180/np.pi , fill=False, color=color_pred[j], rotation_point = 'center')
+                       for j in range(predX.shape[1])]
+
+    for circle, rect in zip(pred_circles, pred_rects):
+        ax.add_patch(circle)
+        ax.add_patch(rect)
+
+    for circle, rect in zip(pred_obb_circles, pred_obb_rects):
+        ax.add_patch(circle)
+        ax.add_patch(rect)
+
+    def update(i):
+        line.set_data(x[:i], y[:i])
+        for j in range(predX.shape[1]):
+            [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
+            pred_dots[j].set_data(x_pred, y_pred)
+            pred_circles[j].center = (x_pred, y_pred)
+            pred_rects[j].set_xy((x_pred - simobbX[0, 4]/2, y_pred - simobbX[0, 5]/2))
+            pred_rects[j].angle = alpha_pred * 180 / np.pi
+
+            if pred.shape[0] > 1:
+                pred_obb_circles[j].center = (predobbX[i, j,0], predobbX[i, j,1])
+                pred_obb_rects[j].set_xy((predobbX[i, j,0] - simobbX[i, 4]/2, predobbX[i, j,1] - simobbX[i, 5]/2))
+                pred_obb_rects[j].angle = predobbX[i,j,2] * 180 / np.pi
+
+    ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),5), interval=10, repeat=False)
+    writer = PillowWriter(fps=5)
+    plt.show()
+    ani.save(f"/home/user/Documents/05_Contributions/Images/{save_name}.gif", writer=writer)
+    
+
+def plotTrackProjfinal(traj,pred=[], filename='LMS_Track.txt', T_opt=None):
+    # load track
+    simX = traj[0]
+    if pred != []:
+        predX = pred[0]
+        print(predX.shape)
+    if traj.shape[0] > 1:
+        simobbX = traj[1]
+    if pred.shape[0] > 1:
+        predobbX = pred[1]
+        print(predobbX.shape)
+    s=simX[:,0]
+    n=simX[:,1]
+    alpha=simX[:,2]
+    v=simX[:,3]
+    # transform data
+    [x, y, alpha, _] = transformProj2Orig(s, n, alpha, v,filename)
+    
+    # Draw obstacle
+    if traj.shape[0] > 1:
+        xobb=simobbX[:,0]
+        yobb=simobbX[:,1]
+        psi_obb=simobbX[:,2]
+        v=simobbX[:,3]
+    
+    
+    
+    # plot racetrack map
+    plt.figure(figsize=(10,10))
+    initplot(filename)
+
+    # Draw driven trajectory
+    heatmap = plt.scatter(x,y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o')
+    heatmap.set_clim(0, 0.25)
+    # cbar = plt.colorbar(heatmap, fraction=0.035)
+    # cbar.set_label("velocity in [m/s]")
+
+    color = cm.plasma(np.linspace(0, 1, len(x)))
+      
+
+    
+    ax = plt.gca()
+    ax.set_aspect('equal', 'box')
+    
+    for i in tqdm.tqdm(range(len(x))):
+        plt.plot(x[:i],y[:i], '-b')
+        
+        if i %10:
+            circles = plt.Circle((x[i], y[i]), 0.145602198, color=color[i], alpha = 0.2, fill=False)
+            # for j in range(predX.shape[1]):
+            #     if j % 2 == 0:
+            #         [x_pred, y_pred, _, _] = transformProj2Orig(predX[i,j,0], predX[i,j,1], predX[i,j,2], predX[i,j,3], filename)
+            #         plt.plot(x_pred, y_pred, 'o', color='r')
+            #         if pred.shape[0] > 1:
+            #             plt.plot(predobbX[i,j,0], predobbX[i,j,1], 'o', color='g')
+            plt.gca().add_patch(circles)
+            
+            rectangles = plt.Rectangle((x[i]-simobbX[0,4]/2, y[i]-simobbX[0,5]/2), simobbX[0,4], simobbX[0,5],
+                                            angle=alpha[i]*180/np.pi, color=color[i],  rotation_point = 'center',
+                                            fill=False)
+            plt.gca().add_patch(rectangles)
+
+            # Draw obstacle
+
+            rectangles = plt.Rectangle((xobb[i]-simobbX[i,4]/2, yobb[i]-simobbX[i,5]/2), simobbX[i,4], simobbX[i,5],
+                                        angle=psi_obb[i]*180/np.pi, color=color[i], rotation_point = 'center',
+                                            fill=False)
+
+            circles = plt.Circle((xobb[i], yobb[i]), 0.145602198, color=color[i], alpha = 0.2, fill=False)
+            plt.gca().add_patch(circles)
+            plt.gca().add_patch(rectangles)
+
+  
+
+    
+
 
 def plotRes(simX,simU,t):
     # plot results

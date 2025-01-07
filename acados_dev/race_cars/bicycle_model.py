@@ -34,7 +34,7 @@ from casadi import *
 from tracks.readDataFcn import getTrack
 
 
-def bicycle_model(track="LMS_Track.txt"):
+def bicycle_model(track="LMS_Track6.txt"):
     # define structs
     constraint = types.SimpleNamespace()
     model = types.SimpleNamespace()
@@ -42,7 +42,7 @@ def bicycle_model(track="LMS_Track.txt"):
     model_name = "Spatialbicycle_model"
 
     # load track parameters
-    [s0, _, _, _, kapparef] = getTrack(track)
+    [s0, xref, yref, psiref, kapparef] = getTrack(track)
     length = len(s0)
     pathlength = s0[-1]
     # copy loop to beginning and end
@@ -53,6 +53,9 @@ def bicycle_model(track="LMS_Track.txt"):
 
     # compute spline interpolations
     kapparef_s = interpolant("kapparef_s", "bspline", [s0], kapparef)
+    xref_s = interpolant(f"x_ref", "bspline", [s0], xref)
+    yref_s = interpolant(f"y_ref", "bspline", [s0], yref)
+    psiref_s = interpolant(f"psi_ref", "bspline", [s0], psiref)
 
     ## Race car parameters
     m = 0.043
@@ -91,7 +94,13 @@ def bicycle_model(track="LMS_Track.txt"):
     z = vertcat([])
 
     # parameters
-    p = vertcat([])
+    obb_x = MX.sym("obb_x")
+    obb_y = MX.sym("obb_y")
+    obb_psi = MX.sym("obb_psi")
+    obb_v = MX.sym("obb_v")
+    obb_width = MX.sym("obb_width")
+    obb_length = MX.sym("obb_length")
+    p = vertcat(obb_x, obb_y, obb_psi, obb_v, obb_width, obb_length)
 
     # dynamics
     Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(5 * v)
@@ -110,8 +119,8 @@ def bicycle_model(track="LMS_Track.txt"):
     a_long = Fxd / m
 
     # Model bounds
-    track_width = 0.25
-    model.n_min = -track_width/2  # right border of the track [m]
+    track_width = 0.3
+    model.n_min = 0.0 # right border of the track [m]
     model.n_max = track_width  # middle of the opposite lane [m]
 
     # state bounds
@@ -134,13 +143,31 @@ def bicycle_model(track="LMS_Track.txt"):
     constraint.along_min = -4  # maximum lateral force [m/s^2]
     constraint.along_max = 4  # maximum lateral force [m/s^2]
 
+    model.v_max = 0.25 # maximum velocity [m/s]
+
     # Define initial conditions
-    model.x0 = np.array([-3, 0, 0, 0, 0, 0])
+    model.x0 = np.array([-2, 0, 0, 0.25, 0, 0])
+
+    
+    # define obstacles constraints
+    # Function to get catesian pose from Frenet coordinates
+    x_c = xref_s(s) - n * sin(psiref_s(s))
+    y_c = yref_s(s) + n * cos(psiref_s(s))
+    psi_c = psiref_s(s) + alpha
+    # constraint.pose = np.array([x_c, y_c])
+    # constraint.pose_obb = np.array([obb_x, obb_y])
+
+
+    dist = sqrt((x_c - obb_x) ** 2 + (y_c - obb_y) ** 2)
+    model.dist = dist
+    constraint.dist = Function("dist", [x, p], [dist])
+    constraint.dist_min = 0.4
+    
 
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta)
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, dist, dist)
 
     # Define model struct
     params = types.SimpleNamespace()

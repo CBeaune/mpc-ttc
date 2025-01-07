@@ -30,13 +30,15 @@
 
 # author: Daniel Kloeser
 
+import casadi as ca
+
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
 from bicycle_model import bicycle_model
 import scipy.linalg
 import numpy as np
 
 
-def acados_settings(Tf, N, track_file):
+def acados_settings(Tf, N, track_file, obb_X):
     # create render arguments
     ocp = AcadosOcp()
 
@@ -55,25 +57,28 @@ def acados_settings(Tf, N, track_file):
     model_ac.name = model.name
     ocp.model = model_ac
 
+    n_params = model.p.size()[0]
+    ocp.dims.np = n_params
+    ocp.parameter_values = np.array([1e3,1e3,0,0,0,0])
+
     # define constraint
     model_ac.con_h_expr = constraint.expr
 
     # dimensions
-    nx = model.x.rows()
+    nx = model.x.rows() 
     nu = model.u.rows()
     ny = nx + nu
-    ny_e = nx
+    ny_e = nx 
 
     nsbx = 1
     nh = constraint.expr.shape[0]
-    nsh = nh
+    nsh = 5
     ns = nsh + nsbx
 
     # discretization
     ocp.solver_options.N_horizon = N
-
     # set cost
-    Q = np.diag([ 1e-1, 1e1, 1e-8, 1e-8, 1e-3, 5e-3 ]) 
+    Q = np.diag([ 1e-1, 1e-8, 1e-8, 1e-8, 1e-3, 5e-3 ])
 
     R = np.eye(nu)
     R[0, 0] = 1e-3
@@ -81,8 +86,16 @@ def acados_settings(Tf, N, track_file):
 
     Qe = np.diag([ 5e0, 1e1, 1e-8, 1e-8, 5e-3, 2e-3 ])
 
-    ocp.cost.cost_type = "LINEAR_LS"
-    ocp.cost.cost_type_e = "LINEAR_LS"
+    ocp.cost.cost_type = "NONLINEAR_LS"
+    ocp.cost.cost_type_e = "NONLINEAR_LS"
+
+    # vref = 0.25
+    # Tf = 5.0
+    # W_norm = np.diag([1/(vref*Tf), 2/0.25, 1/np.pi/4, 1/vref, 1, 1])
+    # normalized_x = ca.mtimes(W_norm, model.x)
+    ocp.model.cost_y_expr = ca.vertcat(model.x,
+                                        model.u)
+    ocp.model.cost_y_expr_e = model.x
     unscale = N / Tf
 
     ocp.cost.W = unscale * scipy.linalg.block_diag(Q, R)
@@ -111,9 +124,9 @@ def acados_settings(Tf, N, track_file):
     ocp.cost.yref_e = np.array([0, 0, 0, 0, 0, 0])
 
     # setting constraints
-    ocp.constraints.lbx = np.array([-12])
-    ocp.constraints.ubx = np.array([12])
-    ocp.constraints.idxbx = np.array([1])
+    ocp.constraints.lbx = np.array([model.n_min, 0.0,])
+    ocp.constraints.ubx = np.array([model.n_max, model.v_max,])
+    ocp.constraints.idxbx = np.array([1, 3])
     ocp.constraints.lbu = np.array([model.dthrottle_min, model.ddelta_min])
     ocp.constraints.ubu = np.array([model.dthrottle_max, model.ddelta_max])
     ocp.constraints.idxbu = np.array([0, 1])
@@ -129,8 +142,12 @@ def acados_settings(Tf, N, track_file):
             model.n_min,
             model.throttle_min,
             model.delta_min,
+            constraint.dist_min,
+            0.299
+
         ]
     )
+   
     ocp.constraints.uh = np.array(
         [
             constraint.along_max,
@@ -138,11 +155,13 @@ def acados_settings(Tf, N, track_file):
             model.n_max,
             model.throttle_max,
             model.delta_max,
+            1e15,
+            1e15
         ]
     )
     ocp.constraints.lsh = np.zeros(nsh)
     ocp.constraints.ush = np.zeros(nsh)
-    ocp.constraints.idxsh = np.array(range(nsh))
+    ocp.constraints.idxsh = np.array([0, 1,  3, 4, 5])
 
     # set intial condition
     ocp.constraints.x0 = model.x0
@@ -151,14 +170,16 @@ def acados_settings(Tf, N, track_file):
     ocp.solver_options.tf = Tf
     # ocp.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES'
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
+    ocp.solver_options.regularize_method = 'PROJECT'
     ocp.solver_options.nlp_solver_type = "SQP_RTI"
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
-    ocp.solver_options.integrator_type = "ERK"
+    ocp.solver_options.integrator_type = "IRK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
     # ocp.solver_options.nlp_solver_step_length = 0.05
-    ocp.solver_options.nlp_solver_max_iter = 200
-    ocp.solver_options.tol = 1e-4
+    ocp.solver_options.nlp_solver_max_iter = 300
+    ocp.solver_options.tol = 5e-1
+    ocp.solver_options.timeout_max_time = 0.09
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
