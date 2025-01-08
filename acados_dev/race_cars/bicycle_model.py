@@ -33,8 +33,11 @@
 from casadi import *
 from tracks.readDataFcn import getTrack
 
+LENGTH = 0.25
+WIDTH = 0.15
 
-def bicycle_model(track="LMS_Track6.txt"):
+
+def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # define structs
     constraint = types.SimpleNamespace()
     model = types.SimpleNamespace()
@@ -46,10 +49,17 @@ def bicycle_model(track="LMS_Track6.txt"):
     length = len(s0)
     pathlength = s0[-1]
     # copy loop to beginning and end
-    # s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
-    # kapparef = np.append(kapparef, kapparef[1:length])
-    # s0 = np.append([-s0[length - 2] + s0[length - 81 : length - 2]], s0)
-    # kapparef = np.append(kapparef[length - 80 : length - 1], kapparef)
+    s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
+    kapparef = np.append(kapparef, kapparef[1:length])
+    xref = np.append(xref, xref[1:length])
+    yref = np.append(yref, yref[1:length])
+    psiref = np.append(psiref, psiref[1:length])
+    s0 = np.append([-s0[length - 2] + s0[length - 301 : length - 2]], s0)
+    # print(-s0[length - 2]+ s0[length - 151])
+    kapparef = np.append(kapparef[length - 300 : length - 1], kapparef)
+    xref = np.append(xref[length - 300 : length - 1], xref)
+    yref = np.append(yref[length - 300 : length - 1], yref)
+    psiref = np.append(psiref[length - 300 : length - 1], psiref)
 
     # compute spline interpolations
     kapparef_s = interpolant("kapparef_s", "bspline", [s0], kapparef)
@@ -93,14 +103,35 @@ def bicycle_model(track="LMS_Track6.txt"):
     # algebraic variables
     z = vertcat([])
 
-    # parameters
+    # obstacles parameters
     obb_x = MX.sym("obb_x")
     obb_y = MX.sym("obb_y")
     obb_psi = MX.sym("obb_psi")
     obb_v = MX.sym("obb_v")
     obb_width = MX.sym("obb_width")
     obb_length = MX.sym("obb_length")
-    p = vertcat(obb_x, obb_y, obb_psi, obb_v, obb_width, obb_length)
+
+    obb1_x = MX.sym("obb1_x")
+    obb1_y = MX.sym("obb1_y")
+    obb1_psi = MX.sym("obb1_psi")
+    obb1_v = MX.sym("obb1_v")
+    obb1_width = MX.sym("obb1_width")
+    obb1_length = MX.sym("obb1_length")
+
+    obb2_x = MX.sym("obb2_x")
+    obb2_y = MX.sym("obb2_y")
+    obb2_psi = MX.sym("obb2_psi")
+    obb2_v = MX.sym("obb2_v")
+    obb2_width = MX.sym("obb2_width")
+    obb2_length = MX.sym("obb2_length")
+
+
+
+
+
+    p = vertcat(obb_x, obb_y, obb_psi, obb_v, obb_width, obb_length,
+                obb1_x, obb1_y, obb1_psi, obb1_v, obb1_width, obb1_length,
+                obb2_x, obb2_y, obb2_psi, obb2_v, obb2_width, obb2_length)
 
     # dynamics
     Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(5 * v)
@@ -120,8 +151,9 @@ def bicycle_model(track="LMS_Track6.txt"):
 
     # Model bounds
     track_width = 0.3
+    r = 1/LENGTH * (WIDTH**2 + LENGTH**2)/4
     model.n_min = 0.0 # right border of the track [m]
-    model.n_max = track_width  # middle of the opposite lane [m]
+    model.n_max = track_width + r  # middle of the opposite lane [m]
 
     # state bounds
     model.throttle_min = -1.0
@@ -133,20 +165,20 @@ def bicycle_model(track="LMS_Track6.txt"):
     # input bounds
     model.ddelta_min = -2.0  # minimum change rate of stering angle [rad/s]
     model.ddelta_max = 2.0  # maximum change rate of steering angle [rad/s]
-    model.dthrottle_min = -10  # -10.0  # minimum throttle change rate
-    model.dthrottle_max = 10  # 10.0  # maximum throttle change rate
+    model.dthrottle_min = -5  # -10.0  # minimum throttle change rate
+    model.dthrottle_max = 5 # 10.0  # maximum throttle change rate
 
     # nonlinear constraint
-    constraint.alat_min = -4  # maximum lateral force [m/s^2]
-    constraint.alat_max = 4  # maximum lateral force [m/s^1]
+    constraint.alat_min = -4.5  # maximum lateral force [m/s^2]
+    constraint.alat_max = 4.5  # maximum lateral force [m/s^1]
 
-    constraint.along_min = -4  # maximum lateral force [m/s^2]
-    constraint.along_max = 4  # maximum lateral force [m/s^2]
+    constraint.along_min = -2  # maximum lateral force [m/s^2]
+    constraint.along_max = 2  # maximum lateral force [m/s^2]
 
     model.v_max = 0.25 # maximum velocity [m/s]
 
     # Define initial conditions
-    model.x0 = np.array([-2, 0, 0, 0.25, 0, 0])
+    model.x0 = x0
 
     
     # define obstacles constraints
@@ -154,20 +186,45 @@ def bicycle_model(track="LMS_Track6.txt"):
     x_c = xref_s(s) - n * sin(psiref_s(s))
     y_c = yref_s(s) + n * cos(psiref_s(s))
     psi_c = psiref_s(s) + alpha
-    # constraint.pose = np.array([x_c, y_c])
-    # constraint.pose_obb = np.array([obb_x, obb_y])
+    constraint.pose = Function("pose", [x], [x_c, y_c, psi_c])
+    constraint.obb_pose = Function("obb_pose", [p], [obb_x, obb_y, obb_psi])
+    constraint.obb1_pose = Function("obb1_pose", [p], [obb1_x, obb1_y, obb1_psi])
+    constraint.obb2_pose = Function("obb2_pose", [p], [obb2_x, obb2_y, obb2_psi])
+    
 
+    # construct matrice 3*3 containing distances between covering circles between the car and the obstacle
+      # radius of the covering circle /!\ need to be scalar to avoid broadcasting issues
+    centers_ego = np.array([[x_c - r * cos(psi_c), y_c - r * sin(psi_c)],
+                            [x_c, y_c],
+                            [x_c + r * cos(psi_c), y_c + r * sin(psi_c)]])
+    centers_obb = np.array([[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)],
+                            [obb_x, obb_y],
+                            [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)],
+                            [obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)],
+                            [obb1_x, obb1_y],
+                            [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)],
+                            [obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)],
+                            [obb2_x, obb2_y],
+                            [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)]])
+    
+    for j in range(centers_obb.shape[0]):
+        for i in range(centers_ego.shape[0]):
+            dist = sqrt((centers_ego[i, 0] - centers_obb[j, 0]) ** 2 + (centers_ego[i, 1] - centers_obb[j, 1]) ** 2)
+            if i == 0 and j == 0:
+                dist_matrix = dist
+            else:
+                dist_matrix = vertcat(dist_matrix, dist)
 
+    # print("dist_matrix: {}".format(dist_matrix.shape))
     dist = sqrt((x_c - obb_x) ** 2 + (y_c - obb_y) ** 2)
-    model.dist = dist
-    constraint.dist = Function("dist", [x, p], [dist])
-    constraint.dist_min = 0.4
+    constraint.dist = Function("dist", [x, p], [dist_matrix])
+    constraint.dist_min = 3 * r  # minimum distance between covering circles centers
     
 
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta, dist, dist)
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, dist_matrix)
 
     # Define model struct
     params = types.SimpleNamespace()

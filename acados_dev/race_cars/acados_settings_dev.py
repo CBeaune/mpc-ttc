@@ -38,12 +38,12 @@ import scipy.linalg
 import numpy as np
 
 
-def acados_settings(Tf, N, track_file, obb_X):
+def acados_settings(Tf, N, track_file, x0):
     # create render arguments
     ocp = AcadosOcp()
 
     # export model
-    model, constraint = bicycle_model(track_file)
+    model, constraint = bicycle_model(track_file, x0)
 
     # define acados ODE
     model_ac = AcadosModel()
@@ -59,7 +59,7 @@ def acados_settings(Tf, N, track_file, obb_X):
 
     n_params = model.p.size()[0]
     ocp.dims.np = n_params
-    ocp.parameter_values = np.array([1e3,1e3,0,0,0,0])
+    
 
     # define constraint
     model_ac.con_h_expr = constraint.expr
@@ -70,9 +70,15 @@ def acados_settings(Tf, N, track_file, obb_X):
     ny = nx + nu
     ny_e = nx 
 
+    n_obb = 3 # number of obstacles
+    n_dist_circle = 3 # number of distance to circle constraints per obstacle
+    n_dist_tot = 3 * n_obb * n_dist_circle
+    ocp.parameter_values = np.zeros((n_obb*nx,))
+
     nsbx = 1
     nh = constraint.expr.shape[0]
-    nsh = 5
+    hard_constraints = n_dist_tot + 1 
+    nsh = nh - hard_constraints
     ns = nsh + nsbx
 
     # discretization
@@ -135,36 +141,39 @@ def acados_settings(Tf, N, track_file, obb_X):
     ocp.constraints.usbx = np.zeros([nsbx])
     ocp.constraints.idxsbx = np.array(range(nsbx))
 
-    ocp.constraints.lh = np.array(
-        [
+    ocp.constraints.lh = np.zeros(nh)
+    ocp.constraints.lh[:5] = [
             constraint.along_min,
             constraint.alat_min,
             model.n_min,
             model.throttle_min,
             model.delta_min,
-            constraint.dist_min,
-            0.299
-
-        ]
-    )
+            ]
+    
+    
+    # ocp.constraints.lh[6:] = constraint.dist_min
    
-    ocp.constraints.uh = np.array(
-        [
+    ocp.constraints.uh = np.zeros(nh)
+    ocp.constraints.uh[:5] = [
             constraint.along_max,
             constraint.alat_max,
             model.n_max,
             model.throttle_max,
             model.delta_max,
-            1e15,
-            1e15
         ]
-    )
+    for i in range(5, 5 + n_dist_tot):
+        ocp.constraints.lh[i] = constraint.dist_min
+        ocp.constraints.uh[i] = 1e15
+    
     ocp.constraints.lsh = np.zeros(nsh)
     ocp.constraints.ush = np.zeros(nsh)
-    ocp.constraints.idxsh = np.array([0, 1,  3, 4, 5])
+    ocp.constraints.idxsh = np.array([0, 1, 3, 4 ])
 
     # set intial condition
-    ocp.constraints.x0 = model.x0
+    # ocp.constraints.x0 = model.x0
+    ocp.constraints.idxbx_0 = np.arange(nx)
+    ocp.constraints.lbx_0 = model.x0
+    ocp.constraints.ubx_0 = model.x0
 
     # set QP solver and integration
     ocp.solver_options.tf = Tf
@@ -179,10 +188,10 @@ def acados_settings(Tf, N, track_file, obb_X):
     # ocp.solver_options.nlp_solver_step_length = 0.05
     ocp.solver_options.nlp_solver_max_iter = 300
     ocp.solver_options.tol = 5e-1
-    ocp.solver_options.timeout_max_time = 0.09
+    ocp.solver_options.timeout_max_time = 1e-3
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
-    acados_solver = AcadosOcpSolver(ocp, json_file="acados_ocp.json")
+    acados_solver = AcadosOcpSolver(ocp, json_file="acados_ocp.json", verbose=False)
 
     return constraint, model, acados_solver

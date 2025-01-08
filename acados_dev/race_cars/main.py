@@ -1,245 +1,311 @@
-#
-# Copyright (c) The acados authors.
-#
-# This file is part of acados.
-#
-# The 2-Clause BSD License
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-# this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.;
-#
-
-# author: Daniel Kloeser
-
-import time, os
+# Import necessary libraries
+import time
+import os
 import numpy as np
-from acados_settings_dev import *
-from plotFcn import *
+from acados_settings_dev import acados_settings
+from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
 import tqdm
+from time2spatial import transformProj2Orig, transformOrig2Proj
 
-from time2spatial import transformProj2Orig,transformOrig2Proj
+class Simulation:
+    """
+    A class to represent a simulation of a race car navigating a track with obstacles.
+    Attributes
+    ----------
+    TRACK_FILE : str
+        The file name of the track.
+    PREDICTION_HORIZON : float
+        The prediction horizon for the simulation.
+    TIME_STEP : float
+        The time step for the simulation.
+    NUM_DISCRETIZATION_STEPS : int
+        The number of discretization steps.
+    MAX_SIMULATION_TIME : float
+        The maximum simulation time.
+    REFERENCE_VELOCITY : float
+        The reference velocity of the car.
+    REFERENCE_PROGRESS : float
+        The reference progress of the car.
+    OBSTACLE_WIDTH : float
+        The width of the obstacle.
+    OBSTACLE_LENGTH : float
+        The length of the obstacle.
+    INITIAL_OBSTACLE_POSITION : np.array
+        The initial position of the obstacle.
+    DIST_THRESHOLD : float
+        The distance threshold for obstacle avoidance.
+    N_OBSTACLES : int
+        The maximum number of obstacles considered.
+    Q_SAFE : list
+        The weight matrix for safe conditions.
+    QE_SAFE : list
+        The weight matrix for safe conditions at the end of the horizon.
+    Q_OBB : list
+        The weight matrix for obstacle avoidance.
+    QE_OBB : list
+        The weight matrix for obstacle avoidance at the end of the horizon.
+    Zl_SAFE : np.array
+        The slack variable for safe conditions.
+    Zl_OBB : np.array
+        The slack variable for obstacle avoidance.
+    Methods
+    -------
+    __init__():
+        Initializes the simulation parameters and structures.
+    dist(X, X_obb):
+        Calculates the distance between the car and the obstacle.
+    evolution_function(X_obb0, i, cov_noise=np.zeros((2, 2))):
+        Evolves the obstacle position over time.
+    initialize_simulation():
+        Initializes the simulation parameters and structures.
+    run():
+        Runs the simulation.
+    plot_results():
+        Plots the results of the simulation.
+    """
+ 
+    TRACK_FILE = "LMS_Track6.txt"
+    PREDICTION_HORIZON = 5.0
+    TIME_STEP = 0.1
+    NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
+    MAX_SIMULATION_TIME = 5.0
+    REFERENCE_VELOCITY = 0.22
+    REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
+    DIST_THRESHOLD = 0.5
 
-"""
-Example of the frc_racecars in simulation without obstacle avoidance:
-This example is for the optimal racing of the frc race cars. The model is a simple bicycle model and the lateral acceleration is constraint in order to validate the model assumptions.
-The simulation starts at s=-2m until one round is completed(s=8.71m). The beginning is cut in the final plots to simulate a 'warm start'. 
-"""
+    x0 = np.array([-2.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
+    # SAVE GIF and FIGURE
+    SAVE_GIF_NAME = "sim"
+    SAVE_FIG_NAME = "sim"
 
-
-def dist(X, X_obb):
-    assert len(X)==6, "X has to be 6 dimensional s,n,alpha,v,D,delta,psi,psidot, X is {}".format(len(X))
-    assert len(X_obb)==6 , "X_obb has to be 6 dimensional x,y,psi,v,length,width"
-    x,y,psi,v = transformProj2Orig(X[0], X[1], X[2], X[3])
-    X_c = np.array([x,y,psi,v], dtype=object)
-    return np.sqrt((X_c[0] - X_obb[0])**2 + (X_c[1] - X_obb[1])**2)
-
-def evolution_function(X_obb0, i, cov_noise = np.zeros((2,2))):
-    # X_obb0 = [x,y,psi,v,length,width] at t=0 in original coordinates
-    noise = np.random.multivariate_normal([0,0], cov_noise)
-    x = X_obb0[0] + i*dt*X_obb0[3]*np.cos(X_obb0[2]) + noise[0]
-    y = X_obb0[1] + i*dt*X_obb0[3]*np.sin(X_obb0[2]) + noise[1]
-    psi = X_obb0[2]
-    v = X_obb0[3]
-    return [x,y,psi,v,X_obb0[4],X_obb0[5]]
-
-
-track = "LMS_Track6.txt"
-[Sref, _, _, _, _] = getTrack(track)
-
-Tf = 5.0 # prediction horizon
-dt = 0.1
-N = int(Tf/0.1)  # number of discretization steps
-T = 20.00  # maximum simulation time[s]
-vref = 0.25 # reference velocity
-sref_N = vref*Tf# reference for final reference progress
-
-
-# initialize static obstacle
-obb_width = 0.15
-obb_length = 0.25
-obbC = np.array([0.5, -0.05, 0.0, 0.00]) # x,y,psi,v
-obb_p = np.array([obbC[0], obbC[1], obbC[2], obbC[3], obb_length, obb_width])
-
-# load model
-constraint, model, acados_solver = acados_settings(Tf, N, track, obb_p)
-
-# dimensions
-nx = model.x.rows()
-nu = model.u.rows()
-ny = nx + nu
-Nsim = int(T * N / Tf)
-
-# initialize data structs
-simX = np.zeros((Nsim, nx))
-predSimX = np.zeros((Nsim, N, nx)) # prediction of the state for each stage for N stages
-simU = np.zeros((Nsim, nu))
-sim_obb = np.zeros((Nsim, 6))
-predSim_obb = np.zeros((Nsim, N, 6))
-xN = np.zeros((N, nx))
-s0 = model.x0[0]
-for i in range(N):
-    xN[i] = model.x0
-x0 = model.x0
-print("initial state: {}".format(x0))
-print("initial pose: {}".format(transformProj2Orig(x0[0], x0[1], x0[2], x0[3], track)))
-print("initial obstacle pose: {}".format(evolution_function(obb_p,0)))
-print('initial distance : {}'.format(dist(x0, evolution_function(obb_p,0))))
-tcomp_sum = 0
-tcomp_max = 0
-thres =  5.0 / np.abs(vref + obb_p[3])
-
-min_dist = np.inf
-cov_noise = np.diag([0, 0])
-
-
-
-# simulate
-for i in tqdm.tqdm(range(Nsim)):
-
-    danger_zone = False
-    # update reference
-    sref = s0 + sref_N
-
-    dist_obstacle_N = np.array([dist(xN[k], evolution_function(obb_p,k)) for k in range(N)])
-    thres = 0.75
-    # print("min pred distance to obstacle at stage N: {}".format(np.min(dist_obstacle_N)))
-    if dist_obstacle_N[0] < min_dist:
-        min_dist = dist_obstacle_N[0]
-    plt.plot(i,dist_obstacle_N[0],'ro')
-    plt.plot([0,Nsim],[constraint.dist_min, constraint.dist_min],'k--')
-    if dist_obstacle_N[0] < 0.12:
-        print("collision")
-        break
-
+    # Multiple obstacles 
+    N_OBSTACLES_MAX = 3 # Maximum number of obstacles considered
+    OBSTACLE_WIDTH = 0.15
+    OBSTACLE_LENGTH = 0.25
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
+    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -0.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
+    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
+    INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
+    N_OBSTACLES = len(INITIAL_OBSTACLES)
+    assert N_OBSTACLES <= N_OBSTACLES_MAX, f"Number of obstacles should be less than or equal to {N_OBSTACLES_MAX}"
     
+
+    Q_SAFE = [1e5, 5e3, 1e-1, 1e-6, 1e-1, 5e-3, 5e-3, 1e1]
+    QE_SAFE = [5e5, 1e5, 1e-1, 1e-6, 5e-3, 2e-3]
+    Q_OBB = [1e3, 5e-8, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 1e1]
+    QE_OBB = [5e3, 1e3, 1e-8, 1e-8, 5e-3, 2e-3]
+
+    Zl_SAFE = 0.01 * np.ones((5,))
+    Zl_SAFE[4] = 100
+    Zl_OBB = 0.1 * np.ones((5,))
+
+    def __init__(self):
+        self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim, self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN = self.initialize_simulation()
+        self.s0 = self.model.x0[0]
+        self.obstacles = self.INITIAL_OBSTACLES
+        self.tcomp_sum = 0
+        self.tcomp_max = 0
+        self.min_dist = np.inf
+        self.cov_noise = np.diag([0, 0])
+        self.Sgoal = 8.0 # Goal position
+        self.n_params = self.nx * self.N_OBSTACLES
+    
+    def set_init_pose(self, x0):
+        """Set the initial pose of the car."""
+        self.x0 = x0
+
+    def dist(self, X, X_obb):
+        """Calculate the distance between the car and the obstacle."""
+        assert len(X) == 6, f"X has to be 6 dimensional, got {len(X)}"
+        assert len(X_obb) == 6, f"X_obb has to be 6 dimensional, got {len(X_obb)}"
+        x, y, psi, v = transformProj2Orig(X[0], X[1], X[2], X[3])
+        X_c = np.array([x, y, psi, v], dtype=object)
+        return np.sqrt((X_c[0] - X_obb[0])**2 + (X_c[1] - X_obb[1])**2)
+
+    def evolution_function(self, X_obb0, i, cov_noise=np.zeros((2, 2))):
+        """Evolve the obstacle position over time."""
+        noise = np.random.multivariate_normal([0, 0], cov_noise)
+        x = X_obb0[0] + i * self.TIME_STEP * X_obb0[3] * np.cos(X_obb0[2]) + noise[0]
+        y = X_obb0[1] + i * self.TIME_STEP * X_obb0[3] * np.sin(X_obb0[2]) + noise[1]
+        return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5]]
+    
+    def update_obstacle_positions(self, i):
+        """Update the positions of all obstacles."""
+        updated_positions = []
+        for obstacle in self.obstacles:
+            updated_positions.append(self.evolution_function(obstacle, i, self.cov_noise))
+        return updated_positions
+
+
+    def initialize_simulation(self):
+        """Initialize the simulation parameters and structures."""
+        track = self.TRACK_FILE
+        Sref, _, _, _, _ = getTrack(track)
+        constraint, model, acados_solver = acados_settings(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
+                                                            self.x0)
+        nx = model.x.rows()
+        nu = model.u.rows()
+        Nsim = int(self.MAX_SIMULATION_TIME * self.NUM_DISCRETIZATION_STEPS / self.PREDICTION_HORIZON)
+        simX = np.zeros((Nsim, nx))
+        predSimX = np.zeros((Nsim, self.NUM_DISCRETIZATION_STEPS, nx))
+        simU = np.zeros((Nsim, nu))
+        n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
+
+        sim_obb = np.zeros((self.N_OBSTACLES, Nsim, n_xobb))
+        predSim_obb = np.zeros((self.N_OBSTACLES, Nsim, self.NUM_DISCRETIZATION_STEPS, n_xobb))
+
+        xN = np.zeros((self.NUM_DISCRETIZATION_STEPS, nx))
+        for i in range(self.NUM_DISCRETIZATION_STEPS):
+            xN[i] = model.x0
+        return Sref, constraint, model, acados_solver, nx, nu, Nsim, simX, predSimX, simU, sim_obb, predSim_obb, xN
+    
+    def closest_obstacle(self):
+        """Find the closest obstacle to the car."""
+        min_dist = np.inf
+        closest_obstacle = None
+        for i, obstacle in enumerate(self.obstacles):
+            s_obb, _,_,_= transformOrig2Proj(obstacle[0], obstacle[1], obstacle[2], obstacle[3], self.TRACK_FILE)
+            
+            # TODO: Modify to optimize computation time
+            dist = self.dist(self.x0, obstacle)
+            # print(f"Distance to obstacle {i}: {dist}")
+            
+            if s_obb < self.s0 - 0.25: # ignore if behind the car
+                continue
+            elif s_obb > self.s0 + 9.0: # 9.0 m  is the length of the track
+                continue
+            
+            if dist < min_dist:
+                min_dist = dist
+                closest_obstacle = obstacle
+        if min_dist == np.inf:
+            dist = self.dist(self.x0, obstacle)
+            print(f"Distance to obstacle {i}: {dist}")
+            return obstacle
+        return closest_obstacle
+
+    def run(self):
+        """Run the simulation."""
+        print(f"Initial state: {self.x0}")
+        print(f"Initial pose: {self.constraint.pose(self.x0)}")
+        print(f"Initial obstacle 1 pose: {self.constraint.obb_pose(np.array(self.obstacles).reshape((self.n_params)))}")
+        print(f"Initial obstacle 2 pose: {self.constraint.obb1_pose(np.array(self.obstacles).reshape((self.n_params)))}")
+        print(f"Initial obstacle 3 pose: {self.constraint.obb2_pose(np.array(self.obstacles).reshape((self.n_params)))}")
+        print(f"Initial distance: {self.constraint.dist(self.xN[0], np.array(self.obstacles).reshape((self.n_params)))}")
+
+        for i in tqdm.tqdm(range(self.Nsim)):
+            t = time.time()
+            sref = self.s0 + self.REFERENCE_PROGRESS
+
+            # TODO : Check for closest obstacle and update the obstacle position
+            self.closest_obstacle_pose = self.closest_obstacle()
+
+            dist_obstacle_N = np.array([self.dist(self.xN[k], self.evolution_function(self.closest_obstacle_pose, k))
+                                         for k in range(self.NUM_DISCRETIZATION_STEPS)])
+            if dist_obstacle_N[0] < self.min_dist:
+                self.min_dist = dist_obstacle_N[0]
+            if dist_obstacle_N[0] < 0.0:
+                print("Collision detected")
+                break
+
+            for j in range(self.NUM_DISCRETIZATION_STEPS):
+                if dist_obstacle_N[j] < self.DIST_THRESHOLD:
+                    Q = self.Q_OBB
+                    Qe = self.QE_OBB
+                    Zl = self.Zl_OBB
+                else:
+                    Q = self.Q_SAFE
+                    Qe = self.QE_SAFE
+                    Zl = self.Zl_SAFE
+                
+                # Update the obstacle positions for each obstacle at each time step
+                obb_j = self.update_obstacle_positions(j)
+                yref = np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS, 0, 0, self.REFERENCE_VELOCITY, 0, 0, 0, 0])
+                self.predSim_obb[:, i, j, :] = obb_j
+                self.acados_solver.set(j, "p", np.array(np.array(obb_j).reshape((self.n_params))))
+
+                # Update the reference state and cost weights
+                self.acados_solver.set(j, "yref", yref)
+                self.acados_solver.cost_set(j, 'W', np.diag(Q))
+
+            # Update the obstacle positions for each obstacle for the last time step
+            obb_N = self.update_obstacle_positions(self.NUM_DISCRETIZATION_STEPS)
+            self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "p", np.array(obb_N).reshape((self.n_params)))
+
+            # Update the reference state and cost weights for the last time step
+            yref_N = np.array([sref, 0, 0, self.REFERENCE_VELOCITY, 0, 0])
+            self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "yref", yref_N)
+            self.acados_solver.cost_set(self.NUM_DISCRETIZATION_STEPS, 'W', np.diag(Qe))
+
+            
+            status = self.acados_solver.solve()
+            elapsed = time.time() - t
+
+            for j in range(self.NUM_DISCRETIZATION_STEPS):
+                X = self.acados_solver.get(j, "x")
+                self.xN[j] = X
+                self.predSimX[i, j, :] = X
+
+            self.tcomp_sum += elapsed
+            if elapsed > self.tcomp_max:
+                self.tcomp_max = elapsed
+
+            self.x0 = self.acados_solver.get(0, "x")
+            u0 = self.acados_solver.get(0, "u")
+            for j in range(self.nx):
+                self.simX[i, j] = self.x0[j]
+            for j in range(self.nu):
+                self.simU[i, j] = u0[j]
+
+            
+
+            self.obstacles = self.update_obstacle_positions(i)
+            self.sim_obb[:, i, :] = np.array(self.obstacles)
+            self.x0 = self.acados_solver.get(1, "x")
+            self.acados_solver.set(0, "lbx", self.x0)
+            self.acados_solver.set(0, "ubx", self.x0)
+            self.s0 = self.x0[0]
+
+
+            if self.x0[0] > self.Sgoal + 0.1:
+                print("GOAL REACHED")
+
+                    
+                break
+
+        for j in range(i, self.Nsim):
+            self.simX[j, :] = self.simX[i, :]
+            self.sim_obb[:, j, :] = self.sim_obb[:, i, :]
+    
+    def plot_results(self):
+
+        print(f"Average computation time: {self.tcomp_sum / self.Nsim}")
+        print(f"Maximum computation time: {self.tcomp_max}")
+        print(f"Average speed: {np.average(self.simX[:, 3])} m/s")
+        print(f"Minimum distance to obstacle: {self.min_dist}")
+
+        t = np.linspace(0.0, self.Nsim * self.PREDICTION_HORIZON / self.NUM_DISCRETIZATION_STEPS, self.Nsim)
+
+        # plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
+        #                     self.predSimX, self.predSim_obb, # predicted trajectories
+        #                     self.TRACK_FILE, self.SAVE_FIG_NAME)
         
+        plotDist(self.simX, self.sim_obb, self.constraint, t)
+
+        plotRes(self.simX, self.simU, t)
+
+        plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
+                      self.predSimX, self.predSim_obb, # predicted trajectories
+                        self.TRACK_FILE,) #self.SAVE_GIF_NAME
 
 
+        if os.environ.get("ACADOS_ON_CI") is None:
+            plt.show()
 
-    for j in range(N):
-        if dist_obstacle_N[j] < thres:
-            # print("entering danger area")
-            Q = [1e3, 5e-8, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 5e2]
-            Qe = [ 5e3, 1e3, 1e-8, 1e-8, 5e-3, 2e-3]
-            Zl = 0.1 * np.ones((5,))
-            Zl[4] = 100
-            danger_zone = True
-        else:
-            Q = [1e5, 5e3, 1e-3, 1e-8, 1e-1, 5e-3, 5e-3, 5e3]
-            Qe = [ 5e3, 1e3, 1e-3, 1e-8, 5e-3, 2e-3]
-            Zl = 0.01 * np.ones((5,))
-
-        if j == 0:
-            obb_p = evolution_function(obb_p,0)
-            obb_0_pred = evolution_function(obb_p,0, cov_noise)
-            obb_j = obb_0_pred
-        else:
-            obb_j = evolution_function(obb_0_pred,j)
-        yref = np.array([s0 + (sref - s0) * j / N, 0, 0, vref, 0, 0, 0, 0])
-        predSim_obb[i, j, :] = obb_j
-        acados_solver.set(j, "p", np.array(obb_j))
-        acados_solver.set(j, "yref",  yref)
-        # Q_obst_e = [1e-1, 1e-1, 1e-8, 1e-8, 1e-3, 5e-3]
-        # Qe = [ 5e0, 1e3, 1e-8, 1e-8, 5e-3, 2e-3]
-        # Q = [1e-1, 1e-1, 1e-3, 1e-8, 1e-3, 5e-3, 5e-1, 5e-1]
-        # Q_obst = [1e-1, 5e3, 1e-7, 1e-8, 1e-3, 5e-3, 1e-3, 5e-3]
-        acados_solver.cost_set(j, 'W', np.diag(Q))
-        obb_N = evolution_function(obb_0_pred, N)
-        acados_solver.set(N, "p", np.array(obb_N))
-    yref_N = np.array([sref, 0, 0, 0, 0, 0])
-    acados_solver.set(N, "yref", yref_N) 
-    acados_solver.cost_set(N, 'W', np.diag(Qe))
-
-    # solve ocp
-    t = time.time()
-
-    status = acados_solver.solve()
-    # if status != 0:
-    #     print("acados returned status {} in closed loop iteration {}.".format(status, i))
-
-    elapsed = time.time() - t
-
-    for j in range(N):
-        X = acados_solver.get(j, "x")
-        # [x,y,_,_] = transformProj2Orig(X[0],X[1],X[2],X[3],track)
-        # plt.plot(x,y,'ro')
-        # X_obb = acados_solver.get(j, "p")
-        # plt.plot(X_obb[0],X_obb[1],'bo')
-        xN[j] = X
-        predSimX[i, j, :] = X
-    # plt.pause(0.1)
-
-    # manage timings
-    tcomp_sum += elapsed
-    if elapsed > tcomp_max:
-        tcomp_max = elapsed
-
-    # get solution
-    x0 = acados_solver.get(0, "x")
-    u0 = acados_solver.get(0, "u")
-    for j in range(nx):
-        simX[i, j] = x0[j]
-    for j in range(nu):
-        simU[i, j] = u0[j]
-    
-
-    # update obstacle position 
-    # obb_p = evolution_function(obb_p, 1)
-    sim_obb[i, :] = np.array(obb_p)
-
-    # update initial condition
-    x0 = acados_solver.get(1, "x")
-    acados_solver.set(0, "lbx", x0)
-    acados_solver.set(0, "ubx", x0)
-    s0 = x0[0]
-
-
-
-    # check if one lap is done and break and remove entries beyond
-    if x0[0] > Sref[-1] + 0.1:
-        # find where vehicle first crosses start line
-        N0 = np.where(np.diff(np.sign(simX[:, 0])))[0][0]
-        Nsim = i - N0  # correct to final number of simulation steps for plotting
-        simX = simX[N0:i, :]
-        simU = simU[N0:i, :]
-        break
-
-# Plot Results
-t = np.linspace(0.0, Nsim * Tf / N, Nsim)
-
-plotTrackProj(np.array([simX, sim_obb]), np.array([predSimX, predSim_obb]), track, save_name = 'noise_track3')
-plotTrackProjfinal(np.array([simX, sim_obb]), np.array([predSimX, predSim_obb]), track)
-plotalat(simX, simU, constraint, t)
-plotRes(simX, simU, t)
-
-# Print some stats
-print("Average computation time: {}".format(tcomp_sum / Nsim))
-print("Maximum computation time: {}".format(tcomp_max))
-print("Average speed:{}m/s".format(np.average(simX[:, 3])))
-print("Lap time: {}s".format(Tf * Nsim / N))
-print("Minimum distance to obstacle: {}".format(min_dist))
-# avoid plotting when running on Travis
-if os.environ.get("ACADOS_ON_CI") is None:
-    plt.show()
+if __name__ == "__main__":
+    sim = Simulation()
+    sim.run()
+    sim.plot_results()
