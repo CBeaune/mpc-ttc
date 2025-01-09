@@ -6,8 +6,11 @@ from acados_settings_dev import acados_settings
 from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
+from scipy.linalg import sqrtm, eigh, inv
 import tqdm
 from time2spatial import transformProj2Orig, transformOrig2Proj
+from utils import compute_ellipse_parameters
 
 class Simulation:
     """
@@ -67,10 +70,10 @@ class Simulation:
     """
  
     TRACK_FILE = "LMS_Track6.txt"
-    PREDICTION_HORIZON = 5.0
+    PREDICTION_HORIZON = 3.0
     TIME_STEP = 0.1
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
-    MAX_SIMULATION_TIME = 5.0
+    MAX_SIMULATION_TIME = 30.0
     REFERENCE_VELOCITY = 0.22
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
     DIST_THRESHOLD = 0.5
@@ -85,33 +88,36 @@ class Simulation:
     N_OBSTACLES_MAX = 3 # Maximum number of obstacles considered
     OBSTACLE_WIDTH = 0.15
     OBSTACLE_LENGTH = 0.25
-    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
-    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -0.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
-    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH])
+    # Initial positions of the obstacles [x, y, psi, v, length, width, sigmax, sigmay, sigmaxy]
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -0.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
     N_OBSTACLES = len(INITIAL_OBSTACLES)
     assert N_OBSTACLES <= N_OBSTACLES_MAX, f"Number of obstacles should be less than or equal to {N_OBSTACLES_MAX}"
     
 
-    Q_SAFE = [1e5, 5e3, 1e-1, 1e-6, 1e-1, 5e-3, 5e-3, 1e1]
+    Q_SAFE = [1e5, 5e3, 1e-1, 1e-6, 1e-1, 5e-3, 5e-3, 1e2]
     QE_SAFE = [5e5, 1e5, 1e-1, 1e-6, 5e-3, 2e-3]
-    Q_OBB = [1e3, 5e-8, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 1e1]
-    QE_OBB = [5e3, 1e3, 1e-8, 1e-8, 5e-3, 2e-3]
+    Q_OBB = [1e3, 5e-8, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 1e2]
+    QE_OBB = [5e3, 1e3, 1e-1, 1e-8, 5e-3, 2e-3]
 
     Zl_SAFE = 0.01 * np.ones((5,))
     Zl_SAFE[4] = 100
     Zl_OBB = 0.1 * np.ones((5,))
 
     def __init__(self):
+        self.cov_noise = np.diag([0.01, 0.02])
         self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim, self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN = self.initialize_simulation()
         self.s0 = self.model.x0[0]
         self.obstacles = self.INITIAL_OBSTACLES
         self.tcomp_sum = 0
         self.tcomp_max = 0
         self.min_dist = np.inf
-        self.cov_noise = np.diag([0, 0])
+        
         self.Sgoal = 8.0 # Goal position
-        self.n_params = self.nx * self.N_OBSTACLES
+        # self.n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
+        self.n_params = self.n_xobb * self.N_OBSTACLES
     
     def set_init_pose(self, x0):
         """Set the initial pose of the car."""
@@ -120,7 +126,7 @@ class Simulation:
     def dist(self, X, X_obb):
         """Calculate the distance between the car and the obstacle."""
         assert len(X) == 6, f"X has to be 6 dimensional, got {len(X)}"
-        assert len(X_obb) == 6, f"X_obb has to be 6 dimensional, got {len(X_obb)}"
+        assert len(X_obb) == self.n_xobb, f"X_obb has to be {self.n_xobb} dimensional, got {len(X_obb)}"
         x, y, psi, v = transformProj2Orig(X[0], X[1], X[2], X[3])
         X_c = np.array([x, y, psi, v], dtype=object)
         return np.sqrt((X_c[0] - X_obb[0])**2 + (X_c[1] - X_obb[1])**2)
@@ -130,7 +136,7 @@ class Simulation:
         noise = np.random.multivariate_normal([0, 0], cov_noise)
         x = X_obb0[0] + i * self.TIME_STEP * X_obb0[3] * np.cos(X_obb0[2]) + noise[0]
         y = X_obb0[1] + i * self.TIME_STEP * X_obb0[3] * np.sin(X_obb0[2]) + noise[1]
-        return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5]]
+        return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5], cov_noise[0,0], cov_noise[1,1],cov_noise[1,0]]
     
     def update_obstacle_positions(self, i):
         """Update the positions of all obstacles."""
@@ -138,6 +144,7 @@ class Simulation:
         for obstacle in self.obstacles:
             updated_positions.append(self.evolution_function(obstacle, i, self.cov_noise))
         return updated_positions
+    
 
 
     def initialize_simulation(self):
@@ -152,10 +159,21 @@ class Simulation:
         simX = np.zeros((Nsim, nx))
         predSimX = np.zeros((Nsim, self.NUM_DISCRETIZATION_STEPS, nx))
         simU = np.zeros((Nsim, nu))
-        n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
+        self.n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
 
-        sim_obb = np.zeros((self.N_OBSTACLES, Nsim, n_xobb))
-        predSim_obb = np.zeros((self.N_OBSTACLES, Nsim, self.NUM_DISCRETIZATION_STEPS, n_xobb))
+        sim_obb = np.zeros((self.N_OBSTACLES, Nsim, self.n_xobb))
+        sim_obb[:, :, 4] = self.OBSTACLE_LENGTH
+        sim_obb[:, :, 5] = self.OBSTACLE_WIDTH
+        sim_obb[:, :, 6] = self.cov_noise[0, 0]
+        sim_obb[:, :, 7] = self.cov_noise[1, 1]
+        sim_obb[:, :, 8] = self.cov_noise[1, 0]
+
+        predSim_obb = np.zeros((self.N_OBSTACLES, Nsim, self.NUM_DISCRETIZATION_STEPS, self.n_xobb))
+        predSim_obb[:, :, :, 4] = self.OBSTACLE_LENGTH
+        predSim_obb[:, :, :, 5] = self.OBSTACLE_WIDTH
+        predSim_obb[:, :, :, 6] = self.cov_noise[0, 0]
+        predSim_obb[:, :, :, 7] = self.cov_noise[1, 1]
+        predSim_obb[:, :, :, 8] = self.cov_noise[1, 0]
 
         xN = np.zeros((self.NUM_DISCRETIZATION_STEPS, nx))
         for i in range(self.NUM_DISCRETIZATION_STEPS):
@@ -195,6 +213,12 @@ class Simulation:
         print(f"Initial obstacle 2 pose: {self.constraint.obb1_pose(np.array(self.obstacles).reshape((self.n_params)))}")
         print(f"Initial obstacle 3 pose: {self.constraint.obb2_pose(np.array(self.obstacles).reshape((self.n_params)))}")
         print(f"Initial distance: {self.constraint.dist(self.xN[0], np.array(self.obstacles).reshape((self.n_params)))}")
+
+        alpha, beta, theta = compute_ellipse_parameters(1e-2, 0.1,  0.00, 0.95)
+        print(f"Ellipse parameters: {alpha}, {beta}, {theta}")
+        # ellipse = Ellipse((0, 0), 2*alpha, 2*beta, angle = theta *180 / np.pi, edgecolor='r', facecolor='none')
+# 
+        return
 
         for i in tqdm.tqdm(range(self.Nsim)):
             t = time.time()
@@ -289,9 +313,9 @@ class Simulation:
 
         t = np.linspace(0.0, self.Nsim * self.PREDICTION_HORIZON / self.NUM_DISCRETIZATION_STEPS, self.Nsim)
 
-        # plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
-        #                     self.predSimX, self.predSim_obb, # predicted trajectories
-        #                     self.TRACK_FILE, self.SAVE_FIG_NAME)
+        plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
+                            self.predSimX, self.predSim_obb, # predicted trajectories
+                            self.TRACK_FILE, )#self.SAVE_FIG_NAME
         
         plotDist(self.simX, self.sim_obb, self.constraint, t)
 

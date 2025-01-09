@@ -36,9 +36,12 @@ from matplotlib import cm
 import matplotlib.animation as animation
 from matplotlib.animation import PillowWriter
 
+from utils import compute_ellipse_parameters
+
 import seaborn as sns
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 import numpy as np
 import tqdm
 
@@ -106,7 +109,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
     heatmap.set_clim(0, 0.25)
-    color_pred = cm.plasma(np.linspace(0, 1, predX.shape[0]))
+    color_pred = sns.color_palette("flare", predX.shape[1])
     ax.set_aspect('equal', 'box')
 
     # Prepare objects for updating instead of re-creating
@@ -117,28 +120,37 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     r = 1/LENGTH * (WIDTH**2/4 + LENGTH**2/4)
 
     pred_circles1 = [plt.Circle((x[0] - r * np.cos(alpha[0]), y[0] - r * np.sin(alpha[0])),
-                                 r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[0])]
+                                 r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
     pred_circles2 = [plt.Circle((x[0] , y[0]),
-                                 r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[0])]
+                                 r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
     pred_circles3 = [plt.Circle((x[0] + r * np.cos(alpha[0]), y[0] + r * np.sin(alpha[0])),
-                                 r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[0])]
+                                 r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
     pred_rects = [plt.Rectangle((x[0]- LENGTH/2,y[0]- WIDTH/2), LENGTH, WIDTH, 
-                                angle = alpha[0]*180/np.pi,  alpha= 0.2,  fill=False, rotation_point = 'center', color=color_pred[j])
+                                angle = alpha[0]*180/np.pi,  alpha= 0.3,  fill=False, rotation_point = 'center', color=color_pred[j])
                    for j in range(predX.shape[1])]
 
     
-    
-    # pred_obb_circles1 = [plt.Circle((xobb[0] - r * np.cos(psi_obb[0]), yobb[0] - r * np.sin(psi_obb[0])),
-    #                                     r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[1])]
-    # pred_obb_circles2 = [plt.Circle((xobb[0], yobb[0]),
-    #                                  r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[1])]
-    # pred_obb_circles3 = [plt.Circle((xobb[0] + r * np.cos(psi_obb[0]), yobb[0] + r * np.sin(psi_obb[0])),
-    #                                     r, color=color_pred[j], alpha=0.2, fill=False) for j in range(predX.shape[1])]
-    # pred_obb_rects = [plt.Rectangle((xobb[0]- simobbX[0, 4]/2, yobb[0]- simobbX[0, 5]/2), simobbX[0, 4], simobbX[0, 5], angle = psi_obb[0]*180/np.pi ,
-    #                                  fill=False, alpha= 0.2, color=color_pred[j], rotation_point = 'center')
-    #                    for j in range(predX.shape[1])]
+    pred_obb_circles = []
+    pred_obb_rects = []
+    for k in range(predobbX.shape[0]): # for each obstacle
+        pred_obb_circles1 = [plt.Circle((xobb[k,0] - r * np.cos(psi_obb[k,0]), yobb[k,0] - r * np.sin(psi_obb[k,0])),
+                                        r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
+        pred_obb_circles2 = [plt.Circle((xobb[k,0], yobb[k,0]),
+                                        r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
+        pred_obb_circles3 = [plt.Circle((xobb[k,0] + r * np.cos(psi_obb[k,0]), yobb[k,0] + r * np.sin(psi_obb[k,0])),
+                                        r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
+        pred_obb_shape = [plt.Rectangle((xobb[k,0]- LENGTH/2, yobb[k,0]- WIDTH/2), LENGTH, WIDTH, angle = psi_obb[k,0]*180/np.pi ,
+                                        fill=False, alpha= 0.3, color=color_pred[j], rotation_point = 'center')
+                        for j in range(predX.shape[1])]
 
-
+        pred_obb_circles.append([pred_obb_circles1, pred_obb_circles2, pred_obb_circles3])
+        pred_obb_rects.append(pred_obb_shape)
+        for circle1, circle2, circle3, rect in zip(pred_obb_circles1, pred_obb_circles2, pred_obb_circles3, pred_obb_shape):
+            ax.add_patch(circle1)
+            ax.add_patch(circle2)
+            ax.add_patch(circle3)
+            ax.add_patch(rect)
+        
     for circle1, circle2, circle3, rect in zip(pred_circles1, pred_circles2, pred_circles3, pred_rects):
         with sns.axes_style("whitegrid"):
             ax.add_patch(circle1)
@@ -146,11 +158,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             ax.add_patch(circle3)
             ax.add_patch(rect)
 
-    # for circle1, circle2, circle3, rect in zip(pred_obb_circles1, pred_obb_circles2,pred_obb_circles3, pred_obb_rects):
-    #     ax.add_patch(circle1)
-    #     ax.add_patch(circle2)
-    #     ax.add_patch(circle3)
-    #     ax.add_patch(rect)
+
 
     def update(i):
         line.set_data(x[:i], y[:i])
@@ -172,24 +180,27 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                 pred_circles2[j].fill=True
                 pred_circles3[j].set_alpha(0.5)
                 pred_circles3[j].fill=True
-                pred_rects[j].set_alpha(0.5)
+                pred_rects[j].set_alpha(1.0)
+
+            for k in range(predobbX.shape[0]): # for each obstacle
+                [x_pred_obb, y_pred_obb, alpha_pred_obb] = [predobbX[k, i, j, 0], predobbX[k, i, j, 1], predobbX[k, i, j, 2]]
+                pred_obb_circles[k][0][j].center = (x_pred_obb - r * np.cos(alpha_pred_obb),
+                                                    y_pred_obb - r * np.sin(alpha_pred_obb))
+                pred_obb_circles[k][1][j].center = (x_pred_obb, y_pred_obb)
+                pred_obb_circles[k][2][j].center = (x_pred_obb + r * np.cos(alpha_pred_obb),
+                                                    y_pred_obb + r * np.sin(alpha_pred_obb))
+                pred_obb_rects[k][j].set_xy((x_pred_obb - LENGTH/2, y_pred_obb - WIDTH/2))
+                pred_obb_rects[k][j].angle = alpha_pred_obb * 180 / np.pi
+                if j == 0:
+                    pred_obb_circles[k][0][j].set_alpha(0.5)
+                    pred_obb_circles[k][0][j].fill=True
+                    pred_obb_circles[k][1][j].set_alpha(0.5)
+                    pred_obb_circles[k][1][j].fill=True
+                    pred_obb_circles[k][2][j].set_alpha(0.5)
+                    pred_obb_circles[k][2][j].fill=True
+                    pred_obb_rects[k][j].set_alpha(1.0)
 
 
-        #     pred_obb_circles1[j].center = (predobbX[i, j,0] - r * np.cos(predobbX[i, j,2]),
-        #                                     predobbX[i, j,1] - r * np.sin(predobbX[i, j,2]))
-        #     pred_obb_circles2[j].center = (predobbX[i, j,0], predobbX[i, j,1])
-        #     pred_obb_circles3[j].center = (predobbX[i, j,0] + r * np.cos(predobbX[i, j,2]),
-        #                                     predobbX[i, j,1] + r * np.sin(predobbX[i, j,2]))
-        #     pred_obb_rects[j].set_xy((predobbX[i, j,0] - simobbX[i, 4]/2, predobbX[i, j,1] - simobbX[i, 5]/2))
-        #     pred_obb_rects[j].angle = predobbX[i,j,2] * 180 / np.pi
-        # if j == 0:
-        #     pred_obb_circles1[j].set_alpha(0.5)
-        #     pred_obb_circles1[j].fill=True
-        #     pred_obb_circles2[j].set_alpha(0.5)
-        #     pred_obb_circles2[j].fill=True
-        #     pred_obb_circles3[j].set_alpha(0.5)
-        #     pred_obb_circles3[j].fill=True
-        #     pred_obb_rects[j].set_alpha(0.5)
 
     ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),5), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
@@ -226,14 +237,14 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
 
     initplot(filename)
 
-    color = cm.plasma(np.linspace(0, 1, len(x)))
+    color = sns.color_palette("flare", x.shape[0])
     ax = plt.gca()
     ax.set_aspect('equal', 'box')
     r = 1/LENGTH * (WIDTH**2/4 + LENGTH**2/4)
-    print(x.shape)
     for i in tqdm.tqdm(range(x.shape[0])):
         
         if i %10:
+            
             
             circles1 = plt.Circle((x[i] - r * np.cos(alpha[i]), y[i] - r * np.sin(alpha[i])),
                                         r, color=color[i], alpha = 0.2, fill=False)
@@ -251,6 +262,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
 
             # Draw obstacles
             for j in range(xobb.shape[0]):
+                
                 rectangles = plt.Rectangle((xobb[j,i]-LENGTH/2, yobb[j,i]-WIDTH/2), LENGTH, WIDTH,
                                             angle=psi_obb[j,i]*180/np.pi, color=color[i], rotation_point = 'center',
                                                 fill=False)
@@ -266,7 +278,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
                 plt.gca().add_patch(rectangles)
 
     # Draw driven trajectory
-    heatmap = plt.scatter(x,y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o')
+    heatmap = plt.scatter(x,y, c=v, cmap=sns.color_palette("YlOrBr", as_cmap=True), edgecolor='none', marker='o')
     cbar = plt.colorbar(heatmap, fraction=0.035)
     cbar.set_label("velocity in [m/s]")
     if save_name != None:
@@ -280,7 +292,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
 def plotRes(simX,simU,t):
     # plot results
     with sns.axes_style("whitegrid"):
-        plt.figure()
+        plt.figure(figsize=(10,10), tight_layout=True)
         plt.subplot(2, 1, 1)
         plt.step(t, simU[:,0])
         plt.step(t, simU[:,1])
@@ -298,7 +310,8 @@ def plotRes(simX,simU,t):
 
 def plotalat(simX,simU,constraint,t):
     Nsim=t.shape[0]
-    plt.figure()
+    plt.figure(figsize=(10,10), tight_layout=True)
+    plt.title('Lateral acceleration')
     alat=np.zeros(Nsim)
     for i in range(Nsim):
         alat[i]=constraint.alat(simX[i,:],simU[i,:])
@@ -313,10 +326,11 @@ def plotDist(simX,sim_obb,constraint,t):
     with sns.axes_style("whitegrid"):
         Nsim=t.shape[0]
         N_obb = sim_obb.shape[0]
-        plt.figure()
+        plt.figure(figsize=(10,10), tight_layout=True)
+        plt.title('Distance to obstacles covering circles centers')
         dist=np.zeros((Nsim, N_obb*3*3))
         for i in range(Nsim):
-            dist_vector = constraint.dist(simX[i,:],np.array(sim_obb[:,i,:]).reshape((18)))
+            dist_vector = constraint.dist(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
             for j in range(27):
                 dist[i,j]= dist_vector[j]
         k=0
@@ -325,9 +339,9 @@ def plotDist(simX,sim_obb,constraint,t):
                 k = 1 
             if j > 17:
                 k = 2
-            plt.plot(t,dist[:,j], color=sns.color_palette()[k], label='dist'+str(k) if j%9==0 else "")
+            plt.plot(t,dist[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
         
-        plt.plot([t[0],t[-1]],[constraint.dist_min, constraint.dist_min],'k--', label='dist_min')   
+        plt.plot([t[0],t[-1]],[constraint.dist_min, constraint.dist_min],'k--', label='min distance allowed')   
         plt.legend()
         plt.xlabel('t')
-        plt.ylabel('dist[m]')
+        plt.ylabel('dist [m]')

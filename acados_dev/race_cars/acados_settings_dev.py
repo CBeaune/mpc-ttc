@@ -66,6 +66,7 @@ def acados_settings(Tf, N, track_file, x0):
 
     # dimensions
     nx = model.x.rows() 
+    nx_obb = 9 # number of states per obstacle 
     nu = model.u.rows()
     ny = nx + nu
     ny_e = nx 
@@ -73,7 +74,7 @@ def acados_settings(Tf, N, track_file, x0):
     n_obb = 3 # number of obstacles
     n_dist_circle = 3 # number of distance to circle constraints per obstacle
     n_dist_tot = 3 * n_obb * n_dist_circle
-    ocp.parameter_values = np.zeros((n_obb*nx,))
+    ocp.parameter_values = np.zeros((n_obb*nx_obb,))
 
     nsbx = 1
     nh = constraint.expr.shape[0]

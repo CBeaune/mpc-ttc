@@ -110,6 +110,9 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     obb_v = MX.sym("obb_v")
     obb_width = MX.sym("obb_width")
     obb_length = MX.sym("obb_length")
+    obb_sigmax = MX.sym("obb_sigmax")
+    obb_sigmay = MX.sym("obb_sigmay")
+    obb_sigmaxy = MX.sym("obbsigmaxy")
 
     obb1_x = MX.sym("obb1_x")
     obb1_y = MX.sym("obb1_y")
@@ -117,6 +120,9 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     obb1_v = MX.sym("obb1_v")
     obb1_width = MX.sym("obb1_width")
     obb1_length = MX.sym("obb1_length")
+    obb1_sigmax = MX.sym("obb1_sigmax")
+    obb1_sigmay = MX.sym("obb1_sigmay")
+    obb1_sigmaxy = MX.sym("obb1_sigmaxy")
 
     obb2_x = MX.sym("obb2_x")
     obb2_y = MX.sym("obb2_y")
@@ -124,14 +130,13 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     obb2_v = MX.sym("obb2_v")
     obb2_width = MX.sym("obb2_width")
     obb2_length = MX.sym("obb2_length")
+    obb2_sigmax = MX.sym("obb2_sigmax")
+    obb2_sigmay = MX.sym("obb2_sigmay")
+    obb2_sigmaxy = MX.sym("obb2_sigmaxy")
 
-
-
-
-
-    p = vertcat(obb_x, obb_y, obb_psi, obb_v, obb_width, obb_length,
-                obb1_x, obb1_y, obb1_psi, obb1_v, obb1_width, obb1_length,
-                obb2_x, obb2_y, obb2_psi, obb2_v, obb2_width, obb2_length)
+    p = vertcat(obb_x, obb_y, obb_psi, obb_v, obb_width, obb_length, obb_sigmax, obb_sigmay, obb_sigmaxy,
+                obb1_x, obb1_y, obb1_psi, obb1_v, obb1_width, obb1_length, obb1_sigmax, obb1_sigmay, obb1_sigmaxy,
+                obb2_x, obb2_y, obb2_psi, obb2_v, obb2_width, obb2_length, obb2_sigmax, obb2_sigmay, obb2_sigmaxy)
 
     # dynamics
     Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * tanh(5 * v)
@@ -207,6 +212,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
                             [obb2_x, obb2_y],
                             [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)]])
     
+
     for j in range(centers_obb.shape[0]):
         for i in range(centers_ego.shape[0]):
             dist = sqrt((centers_ego[i, 0] - centers_obb[j, 0]) ** 2 + (centers_ego[i, 1] - centers_obb[j, 1]) ** 2)
