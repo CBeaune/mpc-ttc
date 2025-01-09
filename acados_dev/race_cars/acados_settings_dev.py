@@ -163,7 +163,7 @@ def acados_settings(Tf, N, track_file, x0):
             model.delta_max,
         ]
     for i in range(5, 5 + n_dist_tot):
-        ocp.constraints.lh[i] = constraint.dist_min
+        ocp.constraints.lh[i] = 0.0
         ocp.constraints.uh[i] = 1e15
     
     ocp.constraints.lsh = np.zeros(nsh)

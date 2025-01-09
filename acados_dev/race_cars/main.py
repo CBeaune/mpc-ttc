@@ -73,10 +73,10 @@ class Simulation:
     PREDICTION_HORIZON = 5.0
     TIME_STEP = 0.1
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
-    MAX_SIMULATION_TIME = 5.0
+    MAX_SIMULATION_TIME = 30.0
     REFERENCE_VELOCITY = 0.22
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
-    DIST_THRESHOLD = 0.5
+    DIST_THRESHOLD = REFERENCE_PROGRESS
 
     x0 = np.array([-2.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -89,25 +89,26 @@ class Simulation:
     OBSTACLE_WIDTH = 0.15
     OBSTACLE_LENGTH = 0.25
     # Initial positions of the obstacles [x, y, psi, v, length, width, sigmax, sigmay, sigmaxy]
-    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.22, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
-    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -0.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
-    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 5e-4, 5e-3, 5e-8])
+    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -1.0, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 5e-4, 5e-3, 5e-8])
+    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 5e-4, 5e-3, 5e-8])
     INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
     N_OBSTACLES = len(INITIAL_OBSTACLES)
     assert N_OBSTACLES <= N_OBSTACLES_MAX, f"Number of obstacles should be less than or equal to {N_OBSTACLES_MAX}"
     
 
-    Q_SAFE = [1e5, 5e3, 1e-1, 1e-6, 1e-1, 5e-3, 5e-3, 1e2]
-    QE_SAFE = [5e5, 1e5, 1e-1, 1e-6, 5e-3, 2e-3]
+    Q_SAFE = [1e5, 5e3, 1e-3, 1e-8, 1e-1, 5e-3, 5e-3, 1e2]
+    QE_SAFE = [5e5, 1e5, 1e-3, 1e-8, 5e-3, 2e-3]
+
     Q_OBB = [1e3, 5e-8, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 1e2]
-    QE_OBB = [5e3, 1e3, 1e-1, 1e-8, 5e-3, 2e-3]
+    QE_OBB = [5e5, 1e-8, 1e-8, 1e-8, 5e-3, 2e-3]
 
     Zl_SAFE = 0.01 * np.ones((5,))
     Zl_SAFE[4] = 100
     Zl_OBB = 0.1 * np.ones((5,))
 
     def __init__(self):
-        self.cov_noise = np.diag([0.01, 0.02])
+        self.cov_noise = np.diag([0.005, 0.008])
         self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim, self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN = self.initialize_simulation()
         self.s0 = self.model.x0[0]
         self.obstacles = self.INITIAL_OBSTACLES
@@ -192,7 +193,7 @@ class Simulation:
             dist = self.dist(self.x0, obstacle)
             # print(f"Distance to obstacle {i}: {dist}")
             
-            if s_obb < self.s0 - 0.25: # ignore if behind the car
+            if s_obb < self.s0 - 0.2: # ignore if behind the car
                 continue
             elif s_obb > self.s0 + 9.0: # 9.0 m  is the length of the track
                 continue
