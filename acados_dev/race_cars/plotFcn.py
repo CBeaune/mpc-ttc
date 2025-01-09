@@ -145,7 +145,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
         pred_obb_circles.append([pred_obb_circles1, pred_obb_circles2, pred_obb_circles3])
         pred_obb_rects.append(pred_obb_shape)
-        for circle1, circle2, circle3, rect in zip(pred_obb_circles1, pred_obb_circles2, pred_obb_circles3, pred_obb_shape):
+    for k in range(predobbX.shape[0]): # for each obstacle
+        for circle1, circle2, circle3, rect in zip(pred_obb_circles[k][0],pred_obb_circles[k][1],pred_obb_circles[k][2], pred_obb_rects[k]):
             ax.add_patch(circle1)
             ax.add_patch(circle2)
             ax.add_patch(circle3)
@@ -227,6 +228,8 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     yobb=sim_obb[:,:,1]
     psi_obb=sim_obb[:,:,2]
     v_obb=sim_obb[:,:,3]
+
+
     
     LENGTH = sim_obb[0,0,4]
     WIDTH = sim_obb[0,0,5]
@@ -236,6 +239,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     plt.figure(figsize=(10,10))
 
     initplot(filename)
+    
 
     color = sns.color_palette("flare", x.shape[0])
     ax = plt.gca()
@@ -278,7 +282,17 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
                 plt.gca().add_patch(rectangles)
 
     # Draw driven trajectory
-    heatmap = plt.scatter(x,y, c=v, cmap=sns.color_palette("YlOrBr", as_cmap=True), edgecolor='none', marker='o')
+    # heatmap = plt.scatter(x,y, c=v, cmap=sns.color_palette("YlOrBr", as_cmap=True),s=10, edgecolor='none', marker='o')
+    # cbar = plt.colorbar(heatmap, fraction=0.035)
+    x_combined = x
+    y_combined = y
+    v_combined = v
+    for k in range(xobb.shape[0]):
+        x_combined = np.concatenate((x_combined, xobb[k,:]))
+        y_combined = np.concatenate((y_combined, yobb[k,:]))
+        v_combined = np.concatenate((v_combined, v_obb[k,:]))
+    heatmap = plt.scatter(x_combined, y_combined, c=v_combined,
+                           cmap=sns.color_palette("YlOrBr", as_cmap=True),s=10, edgecolor='none', marker='o')
     cbar = plt.colorbar(heatmap, fraction=0.035)
     cbar.set_label("velocity in [m/s]")
     if save_name != None:
@@ -344,4 +358,5 @@ def plotDist(simX,sim_obb,constraint,t):
         plt.plot([t[0],t[-1]],[constraint.dist_min, constraint.dist_min],'k--', label='min distance allowed')   
         plt.legend()
         plt.xlabel('t')
+        plt.ylim([0, 5.0])
         plt.ylabel('dist [m]')

@@ -70,10 +70,10 @@ class Simulation:
     """
  
     TRACK_FILE = "LMS_Track6.txt"
-    PREDICTION_HORIZON = 3.0
+    PREDICTION_HORIZON = 5.0
     TIME_STEP = 0.1
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
-    MAX_SIMULATION_TIME = 30.0
+    MAX_SIMULATION_TIME = 5.0
     REFERENCE_VELOCITY = 0.22
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
     DIST_THRESHOLD = 0.5
@@ -89,7 +89,7 @@ class Simulation:
     OBSTACLE_WIDTH = 0.15
     OBSTACLE_LENGTH = 0.25
     # Initial positions of the obstacles [x, y, psi, v, length, width, sigmax, sigmay, sigmaxy]
-    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.22, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -0.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
@@ -111,6 +111,7 @@ class Simulation:
         self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim, self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN = self.initialize_simulation()
         self.s0 = self.model.x0[0]
         self.obstacles = self.INITIAL_OBSTACLES
+        self.obstacles0 = self.INITIAL_OBSTACLES
         self.tcomp_sum = 0
         self.tcomp_max = 0
         self.min_dist = np.inf
@@ -134,14 +135,14 @@ class Simulation:
     def evolution_function(self, X_obb0, i, cov_noise=np.zeros((2, 2))):
         """Evolve the obstacle position over time."""
         noise = np.random.multivariate_normal([0, 0], cov_noise)
-        x = X_obb0[0] + i * self.TIME_STEP * X_obb0[3] * np.cos(X_obb0[2]) + noise[0]
-        y = X_obb0[1] + i * self.TIME_STEP * X_obb0[3] * np.sin(X_obb0[2]) + noise[1]
+        x = X_obb0[0] + i * self.TIME_STEP * X_obb0[3] * np.cos(X_obb0[2]) 
+        y = X_obb0[1] + i * self.TIME_STEP * X_obb0[3] * np.sin(X_obb0[2]) 
         return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5], cov_noise[0,0], cov_noise[1,1],cov_noise[1,0]]
     
-    def update_obstacle_positions(self, i):
+    def update_obstacle_positions(self, i, obstacles):
         """Update the positions of all obstacles."""
         updated_positions = []
-        for obstacle in self.obstacles:
+        for obstacle in obstacles:
             updated_positions.append(self.evolution_function(obstacle, i, self.cov_noise))
         return updated_positions
     
@@ -215,10 +216,7 @@ class Simulation:
         print(f"Initial distance: {self.constraint.dist(self.xN[0], np.array(self.obstacles).reshape((self.n_params)))}")
 
         alpha, beta, theta = compute_ellipse_parameters(1e-2, 0.1,  0.00, 0.95)
-        print(f"Ellipse parameters: {alpha}, {beta}, {theta}")
-        # ellipse = Ellipse((0, 0), 2*alpha, 2*beta, angle = theta *180 / np.pi, edgecolor='r', facecolor='none')
-# 
-        return
+
 
         for i in tqdm.tqdm(range(self.Nsim)):
             t = time.time()
@@ -246,7 +244,7 @@ class Simulation:
                     Zl = self.Zl_SAFE
                 
                 # Update the obstacle positions for each obstacle at each time step
-                obb_j = self.update_obstacle_positions(j)
+                obb_j = self.update_obstacle_positions(j, self.obstacles)
                 yref = np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS, 0, 0, self.REFERENCE_VELOCITY, 0, 0, 0, 0])
                 self.predSim_obb[:, i, j, :] = obb_j
                 self.acados_solver.set(j, "p", np.array(np.array(obb_j).reshape((self.n_params))))
@@ -256,7 +254,7 @@ class Simulation:
                 self.acados_solver.cost_set(j, 'W', np.diag(Q))
 
             # Update the obstacle positions for each obstacle for the last time step
-            obb_N = self.update_obstacle_positions(self.NUM_DISCRETIZATION_STEPS)
+            obb_N = self.update_obstacle_positions(self.NUM_DISCRETIZATION_STEPS, self.obstacles)
             self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "p", np.array(obb_N).reshape((self.n_params)))
 
             # Update the reference state and cost weights for the last time step
@@ -285,9 +283,8 @@ class Simulation:
                 self.simU[i, j] = u0[j]
 
             
-
-            self.obstacles = self.update_obstacle_positions(i)
-            self.sim_obb[:, i, :] = np.array(self.obstacles)
+            self.obstacles = self.update_obstacle_positions(i, self.obstacles0)
+            self.sim_obb[:, i, :] = self.obstacles
             self.x0 = self.acados_solver.get(1, "x")
             self.acados_solver.set(0, "lbx", self.x0)
             self.acados_solver.set(0, "ubx", self.x0)
@@ -305,7 +302,6 @@ class Simulation:
             self.sim_obb[:, j, :] = self.sim_obb[:, i, :]
     
     def plot_results(self):
-
         print(f"Average computation time: {self.tcomp_sum / self.Nsim}")
         print(f"Maximum computation time: {self.tcomp_max}")
         print(f"Average speed: {np.average(self.simX[:, 3])} m/s")
