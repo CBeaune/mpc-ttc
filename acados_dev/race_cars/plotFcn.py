@@ -76,7 +76,7 @@ def initplot(filename='LMS_Track.txt'):
 
 def plotTrackProj(simX, sim_obb, # simulated trajectories
                     predSimX, predSim_obb, # predicted trajectories
-                    filename='LMS_Track.txt', save_name = None):
+                    filename='LMS_Track.txt', save_name = None, fig = None, ax = None):
     
     # Load simulated data
     s=simX[:,0]
@@ -107,7 +107,11 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     
     # plot racetrack map
     with sns.axes_style("whitegrid"):
-        fig, ax = plt.subplots(figsize=(10, 10))
+        if fig == None:
+            REAL_TIME_PLOTTING = False
+            fig, ax = plt.subplots(figsize=(10, 10))
+        else:
+            REAL_TIME_PLOTTING = True
     initplot(filename)
 
     heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
@@ -244,7 +248,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),5), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
-    plt.show()
+    if not REAL_TIME_PLOTTING:
+        plt.show()
     if save_name != None:
         ani.save(f"/home/user/Documents/05_Contributions/Images/{save_name}.gif", writer=writer)
     

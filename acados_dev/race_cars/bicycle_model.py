@@ -210,12 +210,12 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     
     # Ellipses parameters
     constraint.dist_min = 0.0  
-    α_0 = obb_a + r + 2*r # minimum distance between covering circles centers including ellipse axes
-    β_0 = obb_b + r + 2*r
-    α1 = obb1_a + r + 2*r
-    β1 = obb1_b + r + 2*r
-    α2 = obb2_a + r + 2*r
-    β2 = obb2_b + r + 2*r
+    α_0 = obb_a + 2*r + r #minimum distance between covering circles centers including ellipse axes
+    β_0 = obb_b + 2*r + r
+    α1 = obb1_a + 2*r + r
+    β1 = obb1_b + 2*r + r
+    α2 = obb2_a + 2*r + r
+    β2 = obb2_b + 2*r + r
 
     α = vertcat(α_0, α1, α2)
     β = vertcat(β_0, β1, β2)
@@ -227,8 +227,8 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
             for l in range(centers_ego.shape[0]): # loop over covering circles of the ego car
                 x_l = centers_ego[l, 0]
                 y_l = centers_ego[l, 1]
-                dist = (((x_l - centers_obb[k,j,0]) * cos(psi_c-theta[k]) + (y_l - centers_obb[k,j,1]) * sin(psi_c-theta[k]) ) /α[k])**2 +\
-                       (((x_l - centers_obb[k,j,0]) * sin(psi_c-theta[k]) - (y_l - centers_obb[k,j,1]) * cos(psi_c-theta[k]) ) /β[k])**2 - 1
+                dist = (((x_l - centers_obb[k,j,0]) * cos(theta[k]) + (y_l - centers_obb[k,j,1]) * sin(theta[k]) ) /α[k])**2 +\
+                       (((x_l - centers_obb[k,j,0]) * sin(theta[k]) - (y_l - centers_obb[k,j,1]) * cos(theta[k]) ) /β[k])**2 - 1
                 dist_matrix[k*centers_obb.shape[1]*centers_ego.shape[0] + j*centers_ego.shape[0] + l] = dist
         
     # print("dist_matrix: {}".format(dist_matrix))
