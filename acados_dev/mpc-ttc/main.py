@@ -144,13 +144,12 @@ class Simulation:
         with open(save_path + "/params.pkl", "wb") as f:
             names = ["Nsim", "MAX_SIMULATION_TIME", "TIME_STEP", "PREDICTION_HORIZON", "TRACK_FILE", "REFERENCE_VELOCITY",
                       "REFERENCE_PROGRESS", "DIST_THRESHOLD", "tcomp_sum", "tcomp_max", "Q_SAFE", "QE_SAFE", "Q_OBB", "QE_OBB",
-                        "cov_noise"]
+                        "cov_noise", "Sref"]
             params = [self.Nsim, self.MAX_SIMULATION_TIME, self.TIME_STEP, self.PREDICTION_HORIZON, self.TRACK_FILE,
                           self.REFERENCE_VELOCITY, self.REFERENCE_PROGRESS, self.DIST_THRESHOLD, self.tcomp_sum, self.tcomp_max,
-                          self.Q_SAFE, self.QE_SAFE, self.Q_OBB, self.QE_OBB, self.cov_noise]
+                          self.Q_SAFE, self.QE_SAFE, self.Q_OBB, self.QE_OBB, self.cov_noise, self.Sref]
             dict = {name: param for name, param in zip(names, params)}
 
-                
             # save all the parameters with names
 
             pickle.dump(dict, f)
