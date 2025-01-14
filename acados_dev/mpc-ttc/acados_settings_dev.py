@@ -143,32 +143,34 @@ def acados_settings(Tf, N, track_file, x0):
     ocp.constraints.idxsbx = np.array(range(nsbx))
 
     ocp.constraints.lh = np.zeros(nh)
-    ocp.constraints.lh[:5] = [
+    ocp.constraints.lh[:6] = [
             constraint.along_min,
             constraint.alat_min,
             model.n_min,
             model.throttle_min,
             model.delta_min,
+            0.0
             ]
     
     
     # ocp.constraints.lh[6:] = constraint.dist_min
    
     ocp.constraints.uh = np.zeros(nh)
-    ocp.constraints.uh[:5] = [
+    ocp.constraints.uh[:6] = [
             constraint.along_max,
             constraint.alat_max,
             model.n_max,
             model.throttle_max,
             model.delta_max,
+            model.v_lim,
         ]
-    for i in range(5, 5 + n_dist_tot):
+    for i in range(6, 6 + n_dist_tot):
         ocp.constraints.lh[i] = 0.0
         ocp.constraints.uh[i] = 1e15
     
     ocp.constraints.lsh = np.zeros(nsh)
     ocp.constraints.ush = np.zeros(nsh)
-    ocp.constraints.idxsh = np.array([0, 1, 3, 4 ])
+    ocp.constraints.idxsh = np.array([0, 1, 3, 4, 5 ])
 
     # set intial condition
     # ocp.constraints.x0 = model.x0

@@ -11,6 +11,7 @@ from scipy.linalg import sqrtm, eigh, inv
 import tqdm
 from time2spatial import transformProj2Orig, transformOrig2Proj
 from utils import compute_ellipse_parameters
+import pickle
 
 class Simulation:
     """
@@ -75,7 +76,7 @@ class Simulation:
     TIME_STEP = 0.1
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
     MAX_SIMULATION_TIME = 20.0
-    REFERENCE_VELOCITY = 0.22
+    REFERENCE_VELOCITY = 0.21
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
     DIST_THRESHOLD = 0.75
 
@@ -90,7 +91,7 @@ class Simulation:
     OBSTACLE_WIDTH = 0.15
     OBSTACLE_LENGTH = 0.25
     # Initial positions of the obstacles [x, y, psi, v, length, width, sigmax, sigmay, sigmaxy]
-    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.05, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.01, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
     INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -1.0, -np.pi/2+np.pi/9, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
@@ -108,9 +109,7 @@ class Simulation:
     Q_OBB = [1e3, 1e-1, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-3]
     QE_OBB = [5e3, 1e-1, 1e-8, 1e-8, 5e-3, 5e-3]
 
-    Zl_SAFE = 0.01 * np.ones((5,))
-    Zl_SAFE[4] = 100
-    Zl_OBB = 0.1 * np.ones((5,))
+
 
     # fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
@@ -132,6 +131,24 @@ class Simulation:
         self.Sgoal = 8.0 # Goal position
         # self.n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
         self.n_params = self.n_xobb * self.N_OBSTACLES
+    
+    def save_params(self, folder):
+        """Save the parameters of the simulation."""
+        
+        # Save useful params in pickle file
+
+        save_path = f"results/{folder}"
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        with open(save_path + "/params.pkl", "wb") as f:
+            pickle.dump([self.Nsim, self.MAX_SIMULATION_TIME, self.TIME_STEP, self.PREDICTION_HORIZON, self.TRACK_FILE,
+                          self.REFERENCE_VELOCITY, self.REFERENCE_PROGRESS, self.DIST_THRESHOLD, self.tcomp_sum, self.tcomp_max,
+                          self.Q_SAFE, self.QE_SAFE, self.Q_OBB, self.QE_OBB], f)
+        np.save(save_path + "/simX.npy", self.simX)
+        np.save(save_path + "/simU.npy", self.simU)
+        np.save(save_path + "/sim_obb.npy", self.sim_obb)
+        np.save(save_path + "/predSimX.npy", self.predSimX)
+        np.save(save_path + "/predSim_obb.npy", self.predSim_obb)
     
     def set_init_pose(self, x0):
         """Set the initial pose of the car."""
@@ -215,7 +232,6 @@ class Simulation:
         print(f"Initial obstacle 3 pose: {self.constraint.obb2_pose(np.array(self.obstacles).reshape((self.n_params)))}")
         print(f"Initial distance: {[np.linalg.norm(self.xN[0][:2] - np.array(self.obstacles)[k][:2]) for k in range(self.N_OBSTACLES)]}")
 
-        fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
         for i in tqdm.tqdm(range(self.Nsim)):
             sref = self.s0 + self.REFERENCE_PROGRESS
@@ -234,9 +250,7 @@ class Simulation:
 
             t0_pred = time.time()
             obb_J = [self.update_obstacle_positions(j, self.obstacles) for j in range(self.NUM_DISCRETIZATION_STEPS+1)]
-            plt.plot([obb_J[j][0][6] for j in range(self.NUM_DISCRETIZATION_STEPS+1)], 'ro')
-            plt.plot([obb_J[j][0][7] for j in range(self.NUM_DISCRETIZATION_STEPS+1)], 'bo')
-            plt.plot([obb_J[j][0][8]for j in range(self.NUM_DISCRETIZATION_STEPS+1)], 'go')
+
             for j in range(self.NUM_DISCRETIZATION_STEPS):
                 if i > 0:
                     X = self.acados_solver.get(j, "x")

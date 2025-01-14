@@ -180,7 +180,8 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     constraint.along_min = -2  # maximum lateral force [m/s^2]
     constraint.along_max = 2  # maximum lateral force [m/s^2]
 
-    model.v_max = 0.25 # maximum velocity [m/s]
+    model.v_max = 0.25 # maximum admissible velocity [m/s]
+    model.v_lim = 0.20 # velocity limit [m/s]
 
     # Define initial conditions
     model.x0 = x0
@@ -241,7 +242,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta, dist_matrix)
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix)
 
     # Define model struct
     params = types.SimpleNamespace()
