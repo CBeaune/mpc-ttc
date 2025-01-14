@@ -219,11 +219,24 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                 # pred_obb_circles[k][1][j].center = (x_pred_obb, y_pred_obb)
                 # pred_obb_circles[k][2][j].center = (x_pred_obb + r * np.cos(alpha_pred_obb),
                 #                                     y_pred_obb + r * np.sin(alpha_pred_obb))
+                a,b,theta = compute_ellipse_parameters(predobbX[k, i, j, 6], predobbX[k, i, j, 7], predobbX[k, i, j, 8], eta = 0.95)
+
+                pred_obb_ellipses[k][0][j].height = 2*b + 2*r
+                pred_obb_ellipses[k][0][j].width = 2*a + 2*r
                 pred_obb_ellipses[k][0][j].center = (x_pred_obb - r * np.cos(alpha_pred_obb),
                                                     y_pred_obb - r * np.sin(alpha_pred_obb))
+                pred_obb_ellipses[k][0][j].angle = theta * 180 / np.pi
+
+                pred_obb_ellipses[k][1][j].height = 2*b + 2*r
+                pred_obb_ellipses[k][1][j].width = 2*a + 2*r
                 pred_obb_ellipses[k][1][j].center = (x_pred_obb, y_pred_obb)
+                pred_obb_ellipses[k][1][j].angle = theta * 180 / np.pi
+
+                pred_obb_ellipses[k][2][j].height = 2*b + 2*r
+                pred_obb_ellipses[k][2][j].width = 2*a + 2*r
                 pred_obb_ellipses[k][2][j].center = (x_pred_obb + r * np.cos(alpha_pred_obb),
                                                     y_pred_obb + r * np.sin(alpha_pred_obb))
+                pred_obb_ellipses[k][2][j].angle = theta * 180 / np.pi
                 
                 pred_obb_rects[k][j].set_xy((x_pred_obb - LENGTH/2, y_pred_obb - WIDTH/2))
                 pred_obb_rects[k][j].angle = alpha_pred_obb * 180 / np.pi
