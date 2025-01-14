@@ -418,3 +418,64 @@ def plotDist(simX,sim_obb,constraint,t):
         plt.xlabel('t')
         plt.ylim([0, 60.0])
         plt.ylabel('dist [m]')
+
+def plot_results(path):
+    # load results
+    simX = np.load(path + '/simX.npy')
+    simU = np.load(path + '/simU.npy')
+    sim_obb = np.load(path + '/sim_obb.npy')
+    predSimX = np.load(path + '/predSimX.npy')
+    predSim_obb = np.load(path + '/predSim_obb.npy')
+
+    import pickle as pkl
+    # import as dictionary
+    params = pkl.load(open(path + '/params.pkl', 'rb'))
+    print(params)
+    tcomp_sum = params['tcomp_sum']
+    tcomp_max = params['tcomp_max']
+    PREDICTION_HORIZON = params['PREDICTION_HORIZON']
+    Nsim = params['Nsim']
+    TIME_STEP = params['TIME_STEP']
+    TRACK_FILE = params['TRACK_FILE']
+
+    NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
+
+    from acados_settings_dev import acados_settings
+    constraint, model, acados_solver = acados_settings(PREDICTION_HORIZON, NUM_DISCRETIZATION_STEPS,
+                                                        TRACK_FILE, simX[0, :])
+
+
+    print(f"Average computation time: { tcomp_sum /  Nsim}")
+    print(f"Maximum computation time: { tcomp_max}")
+    print(f"Average speed: {np.average( simX[:, 3])} m/s")
+
+    
+    t = np.linspace(0.0,  Nsim *  PREDICTION_HORIZON /  NUM_DISCRETIZATION_STEPS,  Nsim)
+
+    plotTrackProjfinal( simX,  sim_obb, # simulated trajectories
+                            predSimX,  predSim_obb, # predicted trajectories
+                            TRACK_FILE, )# SAVE_FIG_NAME
+    
+    plotDist( simX,  sim_obb,  constraint, t)
+
+    plotRes( simX,  simU, t)
+
+    plotTrackProj( simX, sim_obb, # simulated trajectories
+                    predSimX,  predSim_obb, # predicted trajectories
+                        TRACK_FILE,) # SAVE_GIF_NAME
+
+
+    plt.show()
+
+if __name__ == "__main__":
+    import tkinter as tk
+    from tkinter import filedialog
+    import os
+    os.chdir('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results')
+    root = tk.Tk()
+    root.withdraw()
+    
+    path = filedialog.askdirectory(title="Select the results directory")
+    if not path:
+        raise ValueError("No directory selected")
+    plot_results(path)
