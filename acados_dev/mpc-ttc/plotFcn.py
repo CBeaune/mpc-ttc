@@ -36,6 +36,10 @@ from matplotlib import cm
 import matplotlib.animation as animation
 from matplotlib.animation import PillowWriter
 
+import tkinter as tk
+from tkinter import filedialog
+import os
+
 from utils import compute_ellipse_parameters
 
 import seaborn as sns
@@ -76,7 +80,7 @@ def initplot(filename='LMS_Track.txt'):
 
 def plotTrackProj(simX, sim_obb, # simulated trajectories
                     predSimX, predSim_obb, # predicted trajectories
-                    filename='LMS_Track.txt', save_name = None, fig = None, ax = None):
+                    filename='LMS_Track.txt', save_path=None, save_name = None, fig = None, ax = None):
     
     # Load simulated data
     s=simX[:,0]
@@ -264,12 +268,14 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     if not REAL_TIME_PLOTTING:
         plt.show()
     if save_name != None:
-        ani.save(f"/home/user/Documents/05_Contributions/Images/{save_name}.gif", writer=writer)
+        if os.path.exists(save_path) == False:
+            os.makedirs(save_path)
+        ani.save(save_path + f"{save_name}.gif", writer=writer)
     
 
 def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
                         predSimX, predSim_obb, # predicted trajectories
-                        filename='LMS_Track.txt', save_name = None):
+                        filename='LMS_Track.txt', save_path = None, save_name = None):
     # load track
 
     s=simX[:,0]
@@ -353,8 +359,10 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     cbar = plt.colorbar(heatmap, fraction=0.035)
     cbar.set_label("velocity in [m/s]")
     if save_name != None:
-        plt.savefig(f"/home/user/Documents/05_Contributions/Images/{save_name}.png")
-        plt.savefig(f"/home/user/Documents/05_Contributions/Images/{save_name}.pdf")
+        if os.path.exists(save_path) == False:
+            os.makedirs(save_path)
+        plt.savefig(save_path + f"{save_name}.png")
+        plt.savefig(save_path + f"{save_name}.pdf")
   
 
     
@@ -393,7 +401,7 @@ def plotalat(simX,simU,constraint,t):
     plt.xlabel('t')
     plt.ylabel('alat[m/s^2]')
 
-def plotDist(simX,sim_obb,constraint,t):
+def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
     with sns.axes_style("whitegrid"):
         Nsim=t.shape[0]
         N_obb = sim_obb.shape[0]
@@ -418,6 +426,10 @@ def plotDist(simX,sim_obb,constraint,t):
         plt.xlabel('t')
         plt.ylim([0, 60.0])
         plt.ylabel('dist [m]')
+        if save_name != None:
+            if os.path.exists(save_folder) == False:
+                os.makedirs(save_folder)
+            plt.savefig(save_folder + f"{save_name}.png")
 
 def plot_results(path):
     # load results
@@ -468,9 +480,7 @@ def plot_results(path):
     plt.show()
 
 if __name__ == "__main__":
-    import tkinter as tk
-    from tkinter import filedialog
-    import os
+
     os.chdir('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results')
     root = tk.Tk()
     root.withdraw()

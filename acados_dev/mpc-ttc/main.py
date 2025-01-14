@@ -78,7 +78,7 @@ class Simulation:
     MAX_SIMULATION_TIME = 20.0
     REFERENCE_VELOCITY = 0.21
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
-    DIST_THRESHOLD = 0.75
+    DIST_THRESHOLD = 0.25
 
     x0 = np.array([-2.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -101,14 +101,15 @@ class Simulation:
 
     # Q_SAFE = [1e5, 5e2, 1e-3, 1e-8, 1e-1, 5e-3, 5e-3, 5e2]
     # QE_SAFE = [ 5e5, 1e2, 1e-3, 1e-8, 5e-3, 2e-3]
-    Q_SAFE = [5e3, 5e3, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-3]
-    QE_SAFE = [ 5e3, 1e1, 1e-8, 1e-8, 5e-3, 2e-3]
+    Q_SAFE = [5e3, 5e3, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-2]
+    QE_SAFE = [ 5e3, 1e1, 1e0, 1e-8, 5e-3, 2e-3]
 
     # Q_OBB = [1e5, 1e-16, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 5e2]
     # QE_OBB = [ 5e5, 1e-16, 1e-8, 1e-8, 5e-3, 2e-3]
-    Q_OBB = [1e3, 1e-1, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-3]
-    QE_OBB = [5e3, 1e-1, 1e-8, 1e-8, 5e-3, 5e-3]
+    Q_OBB = [1e3, 1e-1, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-2]
+    QE_OBB = [5e3, 1e-1, 1e0, 1e-8, 5e-3, 5e-3]
 
+    folder_name =  f"results/{time.strftime('%Y%m%d-%H%M%S')}/"
 
 
     # fig, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -128,16 +129,16 @@ class Simulation:
         self.min_dist = np.inf
         
         
-        self.Sgoal = 8.0 # Goal position
+        self.Sgoal = 12.0 # Goal position
         # self.n_xobb = self.INITIAL_OBSTACLE_POSITION.shape[0]
         self.n_params = self.n_xobb * self.N_OBSTACLES
     
-    def save_params(self, folder):
+    def save_params(self):
         """Save the parameters of the simulation."""
         
         # Save useful params in pickle file
 
-        save_path = f"mpc-ttc/results/{folder}"
+        save_path = f"{self.folder_name}"
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         with open(save_path + "/params.pkl", "wb") as f:
@@ -227,10 +228,20 @@ class Simulation:
         
         if len(valid_indices) == 0:
             # print(f"Distance to obstacle: {dists[0]}")
-            return 0
+            return None
         
         min_index = valid_indices[np.argmin(dists[valid_indices])]
         return min_index
+    
+    def is_relative_speed_ok(self, min_index, v_rel_threshold=0.1):
+        """Check if the relative speed between the car and the obstacle is safe for overtaking."""
+
+        if min_index is None:
+            return self.REFERENCE_VELOCITY
+        if self.x0[3] - self.obstacles[min_index][3] > v_rel_threshold :
+            return self.REFERENCE_VELOCITY
+        else:
+            return self.obstacles[min_index][3]
 
     def run(self):
         """Run the simulation."""
@@ -260,22 +271,20 @@ class Simulation:
             t0_pred = time.time()
             obb_J = [self.update_obstacle_positions(j, self.obstacles) for j in range(self.NUM_DISCRETIZATION_STEPS+1)]
 
+                
+            # closest_obstacle = self.closest_obstacle()
+
             for j in range(self.NUM_DISCRETIZATION_STEPS):
                 if i > 0:
                     X = self.acados_solver.get(j, "x")
                     self.xN[j] = self.constraint.pose(X)
                     self.predSimX[i, j, :] = X
-                if np.any(dist_obstacle_N[j]) < self.DIST_THRESHOLD:
-                    Q = self.Q_OBB
-                    Qe = self.QE_OBB
-                    # Zl = self.Zl_OBB
-                else:
-                    Q = self.Q_SAFE
-                    Qe = self.QE_SAFE
-                    # Zl = self.Zl_SAFE
+                Q = self.Q_SAFE
+                Qe = self.QE_SAFE
                 
                 # Update the obstacle positions for each obstacle at each time step
                 # obb_j = self.update_obstacle_positions(j, self.obstacles)
+
                 yref = np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS, 0, 0, self.REFERENCE_VELOCITY, 0, 0, 0, 0])
                 self.predSim_obb[:, i, j, :] = obb_J[j]
                 self.acados_solver.set(j, "p", np.array(np.array(obb_J[j]).reshape((self.n_params))))
@@ -341,21 +350,19 @@ class Simulation:
         print(f"Average time for update {self.t_update/self.Nsim}")
         print(f"Average speed: {np.average(self.simX[:, 3])} m/s")
 
-        print(f"Minimum distance to obstacle: {self.min_dist}")
-
         t = np.linspace(0.0, self.Nsim * self.PREDICTION_HORIZON / self.NUM_DISCRETIZATION_STEPS, self.Nsim)
 
         plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
                             self.predSimX, self.predSim_obb, # predicted trajectories
-                            self.TRACK_FILE, )#self.SAVE_FIG_NAME
+                            self.TRACK_FILE, self.folder_name, self.SAVE_FIG_NAME )#
         
-        plotDist(self.simX, self.sim_obb, self.constraint, t)
+        plotDist(self.simX, self.sim_obb, self.constraint, t, self.folder_name, "dist")
 
         plotRes(self.simX, self.simU, t)
 
         plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
                       self.predSimX, self.predSim_obb, # predicted trajectories
-                        self.TRACK_FILE,) #self.SAVE_GIF_NAME
+                        self.TRACK_FILE, self.folder_name,self.SAVE_GIF_NAME ) #
 
 
         if os.environ.get("ACADOS_ON_CI") is None:
@@ -364,7 +371,8 @@ class Simulation:
 if __name__ == "__main__":
     sim = Simulation()
     sim.run()
+    
     sim.plot_results() 
     # get date and time
-    folder_name =  time.strftime("%Y%m%d-%H%M%S")
-    sim.save_params(folder_name)
+    
+    sim.save_params()

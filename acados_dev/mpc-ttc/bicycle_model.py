@@ -237,6 +237,11 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     dist = sqrt((x_c - obb_x) ** 2 + (y_c - obb_y) ** 2)
     constraint.dist = Function("dist", [x, p], [dist_matrix])
     
+
+    # Constraint for overtaking manoeuver
+    # relative velocity must be over a threshold if the car is behind the obstacle and wants to overtake
+    
+
     
 
     # define constraints struct
