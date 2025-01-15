@@ -211,12 +211,12 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     
     # Ellipses parameters
     constraint.dist_min = 0.0  
-    α_0 = obb_a + 2*r + r #minimum distance between covering circles centers including ellipse axes
-    β_0 = obb_b + 2*r + r
-    α1 = obb1_a + 2*r + r
-    β1 = obb1_b + 2*r + r
-    α2 = obb2_a + 2*r + r
-    β2 = obb2_b + 2*r + r
+    α_0 = obb_a + 2*r #+ r #minimum distance between covering circles centers including ellipse axes
+    β_0 = obb_b + 2*r #+ r
+    α1 = obb1_a + 2*r #+ r
+    β1 = obb1_b + 2*r #+ r
+    α2 = obb2_a + 2*r #+ r
+    β2 = obb2_b + 2*r #+ r
 
     α = vertcat(α_0, α1, α2)
     β = vertcat(β_0, β1, β2)
@@ -262,7 +262,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
                 d = sqrt((((x_l - centers_obb[k,j,0]) * cos(theta[k]) + (y_l - centers_obb[k,j,1]) * sin(theta[k]) ) /α[k])**2 +\
                        (((x_l - centers_obb[k,j,0]) * sin(theta[k]) - (y_l - centers_obb[k,j,1]) * cos(theta[k]) ) /β[k])**2)
                 # d_dot = 2 * (p_i - p_j)@ (v_i - v_j) /d
-                d_dot = 2/d * ((x_l - centers_obb[k,j,0]) * (v_x - v_obb_x) + (y_l - centers_obb[k,j,1]) * (v_y - v_obb_y))
+                d_dot = 2/d * (A+B)#(x_l - centers_obb[k,j,0]) * (v_x - v_obb_x) + (y_l - centers_obb[k,j,1]) * (v_y - v_obb_y)
                 ttc = if_else(d_dot < 0, (1-d)/d_dot, 100)
                 ttc = if_else(ttc > 100, 100, ttc)
                 ttc_matrix[k*centers_obb.shape[1]*centers_ego.shape[0] + j*centers_ego.shape[0] + l] = ttc
@@ -272,9 +272,9 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.ttc_min = 1.5
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix, ttc_matrix)#
-    # constraint.expr_0 = vertcat(ttc_matrix)#
+    constraint.ttc_min = 1.0
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v,dist_matrix,  ttc_matrix)#
+    # constraint.expr_0 = vertcat()#
 
     # Define model struct
     params = types.SimpleNamespace()

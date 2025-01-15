@@ -73,6 +73,7 @@ def acados_settings(Tf, N, track_file, x0):
 
     n_obb = 3 # number of obstacles
     n_dist_circle = 3 # number of distance to circle constraints per obstacle
+    n_constraints = 6 # number of constraints
     n_dist_tot = 3 * n_obb * n_dist_circle
     n_ttc_tot = 3 * n_obb * n_dist_circle
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
@@ -157,7 +158,7 @@ def acados_settings(Tf, N, track_file, x0):
     # ocp.constraints.lh[6:] = constraint.dist_min
    
     ocp.constraints.uh = np.zeros(nh)
-    ocp.constraints.uh[:6] = [
+    ocp.constraints.uh[:n_constraints] = [
             constraint.along_max,
             constraint.alat_max,
             model.n_max,
@@ -166,12 +167,12 @@ def acados_settings(Tf, N, track_file, x0):
             model.v_lim,
 
         ]
-    for i in range(6, 6 + n_dist_tot):
+    for i in range(n_constraints, n_constraints + n_dist_tot):
         ocp.constraints.lh[i] = 0.0
         ocp.constraints.uh[i] = 1e15
 
-    for i in range(6 + n_dist_tot, 6 + n_dist_tot + n_ttc_tot):
-        ocp.constraints.lh[i] = constraint.ttc_min
+    for i in range(n_constraints + n_dist_tot,n_constraints + n_dist_tot + n_ttc_tot):
+        ocp.constraints.lh[i] = constraint.ttc_min +0.1
         ocp.constraints.uh[i] = 1e15
     
     ocp.constraints.lsh = np.zeros(nsh)
