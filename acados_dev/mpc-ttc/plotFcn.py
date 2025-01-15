@@ -146,7 +146,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     pred_obb_ellipses = []
     for k in range(predobbX.shape[0]): # for each obstacle
         a,b,theta = compute_ellipse_parameters(sigmax[k,0], sigmay[k,0], sigmaxy[k,0], eta = 0.95)
-        print(a,b,theta)
+        # print(a,b,theta)
         pred_obb_circles1 = [plt.Circle((xobb[k,0] - r * np.cos(psi_obb[k,0]), yobb[k,0] - r * np.sin(psi_obb[k,0])),
                                         r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
         pred_obb_ellipse1 = [Ellipse((xobb[k,0] - r * np.cos(psi_obb[k,0]), yobb[k,0] - r * np.sin(psi_obb[k,0])),
@@ -407,7 +407,7 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         N_obb = sim_obb.shape[0]
         
         plt.figure(figsize=(10,10), tight_layout=True)
-        plt.title('Distance to obstacles covering circles centers')
+        plt.title('Distance to obstacles covering ellipses centers')
         dist=np.zeros((Nsim, N_obb*3*3))
         for i in range(Nsim):
             dist_vector = constraint.dist(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
@@ -430,6 +430,32 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
             if os.path.exists(save_folder) == False:
                 os.makedirs(save_folder)
             plt.savefig(save_folder + f"{save_name}.png")
+
+def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
+    with sns.axes_style("whitegrid"):
+        Nsim=t.shape[0]
+        N_obb = sim_obb.shape[0]
+        
+        plt.figure(figsize=(10,10), tight_layout=True)
+        plt.title('TTC for obstacles covering ellipses centers')
+        ttc=np.ones((Nsim, N_obb*3*3))*1e3
+        for i in range(Nsim):
+            ttc_vector = constraint.ttc(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
+            for j in range(27):
+                ttc[i,j]= ttc_vector[j]
+        k=0
+        for j in range(0,27):
+            if j > 8:
+                k = 1 
+            if j > 17:
+                k = 2
+            plt.plot(t,ttc[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
+        
+        plt.plot([t[0],t[-1]],[constraint.ttc_min, constraint.ttc_min],'k--', label='min distance allowed')   
+        plt.legend()
+        plt.xlabel('t')
+        plt.ylim([0,10.0])
+        plt.ylabel('predicted ttc [s]')
 
 def plot_results(path):
     # load results

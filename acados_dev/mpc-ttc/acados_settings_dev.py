@@ -74,11 +74,12 @@ def acados_settings(Tf, N, track_file, x0):
     n_obb = 3 # number of obstacles
     n_dist_circle = 3 # number of distance to circle constraints per obstacle
     n_dist_tot = 3 * n_obb * n_dist_circle
+    n_ttc_tot = 3 * n_obb * n_dist_circle
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
 
     nsbx = 1
     nh = constraint.expr.shape[0]
-    hard_constraints = n_dist_tot + 1 
+    hard_constraints = n_dist_tot + n_ttc_tot + 1 
     nsh = nh - hard_constraints
     ns = nsh + nsbx
 
@@ -131,7 +132,7 @@ def acados_settings(Tf, N, track_file, x0):
     ocp.cost.yref_e = np.array([0, 0, 0, 0, 0, 0])
 
     # setting constraints
-    ocp.constraints.lbx = np.array([model.n_min, 0.0,])
+    ocp.constraints.lbx = np.array([model.n_min, -0.00,])
     ocp.constraints.ubx = np.array([model.n_max, model.v_max,])
     ocp.constraints.idxbx = np.array([1, 3])
     ocp.constraints.lbu = np.array([model.dthrottle_min, model.ddelta_min])
@@ -146,10 +147,10 @@ def acados_settings(Tf, N, track_file, x0):
     ocp.constraints.lh[:6] = [
             constraint.along_min,
             constraint.alat_min,
-            model.n_min,
+            0.0,
             model.throttle_min,
             model.delta_min,
-            0.0
+            -0.01
             ]
     
     
@@ -163,9 +164,14 @@ def acados_settings(Tf, N, track_file, x0):
             model.throttle_max,
             model.delta_max,
             model.v_lim,
+
         ]
     for i in range(6, 6 + n_dist_tot):
         ocp.constraints.lh[i] = 0.0
+        ocp.constraints.uh[i] = 1e15
+
+    for i in range(6 + n_dist_tot, 6 + n_dist_tot + n_ttc_tot):
+        ocp.constraints.lh[i] = constraint.ttc_min
         ocp.constraints.uh[i] = 1e15
     
     ocp.constraints.lsh = np.zeros(nsh)
@@ -177,6 +183,11 @@ def acados_settings(Tf, N, track_file, x0):
     ocp.constraints.idxbx_0 = np.arange(nx)
     ocp.constraints.lbx_0 = model.x0
     ocp.constraints.ubx_0 = model.x0
+
+
+    # model_ac.con_h_expr_0 = constraint.expr_0
+    # ocp.constraints.uh_0 = np.ones(n_dist_tot)*1e15 # ttc constraint at shooting node 0
+    # ocp.constraints.lh_0 = np.ones(n_dist_tot)*(0.0) # ttc constraint at shooting node 0
 
     # set QP solver and integration
     ocp.solver_options.tf = Tf

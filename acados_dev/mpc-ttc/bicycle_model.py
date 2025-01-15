@@ -157,7 +157,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # Model bounds
     track_width = 0.3
     r = 1/LENGTH * (WIDTH**2 + LENGTH**2)/4
-    model.n_min = 0.0 # right border of the track [m]
+    model.n_min = - track_width/2  + r  # right border of the track [m]
     model.n_max = track_width + r  # middle of the opposite lane [m]
 
     # state bounds
@@ -238,16 +238,43 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     constraint.dist = Function("dist", [x, p], [dist_matrix])
     
 
-    # Constraint for overtaking manoeuver
-    # relative velocity must be over a threshold if the car is behind the obstacle and wants to overtake
-    
+    # Constraint for time to collision
+    v_obb = vertcat(obb_v, obb1_v, obb2_v)
 
+    ttc_matrix = 100*MX.ones(centers_obb.shape[0]*centers_obb.shape[1]*centers_ego.shape[0])
+    d_matrix = 100*MX.ones(centers_obb.shape[0]*centers_obb.shape[1]*centers_ego.shape[0])
+    d_dot_matrix = 100*MX.ones(centers_obb.shape[0]*centers_obb.shape[1]*centers_ego.shape[0])
+    for k in range(centers_obb.shape[0]): # loop over obstacles
+        for j in range(centers_obb.shape[1]): # loop over covering circles
+            for l in range(centers_ego.shape[0]): # loop over covering circles of the ego car
+                x_l = centers_ego[l, 0]
+                y_l = centers_ego[l, 1]
+                v_x = v * cos(psi_c)
+                v_y = v * sin(psi_c)
+                v_obb_x = v_obb[k] * cos(obb_psi)
+                v_obb_y = v_obb[k] * sin(obb_psi)
+
+                A = ((v_x - v_obb_x)*cos(theta[k]) - (v_y - v_obb_y)*sin(theta[k])) *\
+                      ((x_l - centers_obb[k,j,0])*cos(theta[k]) - (y_l - centers_obb[k,j,1])*sin(theta[k])) / α[k]**2 
+                B = ((v_x - v_obb_x)*sin(theta[k]) + (v_y - v_obb_y)*cos(theta[k])) *\
+                        ((x_l - centers_obb[k,j,0])*sin(theta[k]) + (y_l - centers_obb[k,j,1])*cos(theta[k])) / β[k]**2
+                # d = sqrt((p_i - p_j).T @ Sigma @ (p_i - p_j))
+                d = sqrt((((x_l - centers_obb[k,j,0]) * cos(theta[k]) + (y_l - centers_obb[k,j,1]) * sin(theta[k]) ) /α[k])**2 +\
+                       (((x_l - centers_obb[k,j,0]) * sin(theta[k]) - (y_l - centers_obb[k,j,1]) * cos(theta[k]) ) /β[k])**2)
+                # d_dot = 2 * (p_i - p_j)@ (v_i - v_j) /d
+                d_dot = 2/d * ((x_l - centers_obb[k,j,0]) * (v_x - v_obb_x) + (y_l - centers_obb[k,j,1]) * (v_y - v_obb_y))
+                ttc = if_else(d_dot < 0, (1-d)/d_dot, 100)
+                ttc = if_else(ttc > 100, 100, ttc)
+                ttc_matrix[k*centers_obb.shape[1]*centers_ego.shape[0] + j*centers_ego.shape[0] + l] = ttc
+    constraint.ttc = Function("dist", [x, p], [ttc_matrix])
     
 
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix)
+    constraint.ttc_min = 1.5
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix, ttc_matrix)#
+    # constraint.expr_0 = vertcat(ttc_matrix)#
 
     # Define model struct
     params = types.SimpleNamespace()

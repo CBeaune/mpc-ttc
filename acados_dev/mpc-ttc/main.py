@@ -3,7 +3,7 @@ import time
 import os
 import numpy as np
 from acados_settings_dev import acados_settings
-from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes
+from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes, plotTTC
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -75,12 +75,12 @@ class Simulation:
     PREDICTION_HORIZON = 5.0
     TIME_STEP = 0.1
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
-    MAX_SIMULATION_TIME = 20.0
+    MAX_SIMULATION_TIME = 10.0
     REFERENCE_VELOCITY = 0.21
     REFERENCE_PROGRESS = REFERENCE_VELOCITY * PREDICTION_HORIZON
-    DIST_THRESHOLD = 0.25
+    DIST_THRESHOLD = 0.75
 
-    x0 = np.array([-2.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    x0 = np.array([-0.8, 0.001, 0.0, 0.0, 0.0, 0.0])
 
     # SAVE GIF and FIGURE
     SAVE_GIF_NAME = "sim"
@@ -91,21 +91,19 @@ class Simulation:
     OBSTACLE_WIDTH = 0.15
     OBSTACLE_LENGTH = 0.25
     # Initial positions of the obstacles [x, y, psi, v, length, width, sigmax, sigmay, sigmaxy]
-    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.01, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
-    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -1.0, -np.pi/2+np.pi/9, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
-    INITIAL_OBSTACLE_POSITION3 = np.array([-1.25, -1.5, np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION = np.array([0.0, 0.0, 0.0, 0.0, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
+    INITIAL_OBSTACLE_POSITION2 = np.array([1.25, -1.5, -np.pi/2, 0.00, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    # INITIAL_OBSTACLE_POSITION2 = np.array([1.25, 0.3, -np.pi, 0.22, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
+    INITIAL_OBSTACLE_POSITION3 = np.array([1.556, -1.0, np.pi/2, 0.05, OBSTACLE_LENGTH, OBSTACLE_WIDTH, 0, 0, 0])
     INITIAL_OBSTACLES = [INITIAL_OBSTACLE_POSITION, INITIAL_OBSTACLE_POSITION2, INITIAL_OBSTACLE_POSITION3]
     N_OBSTACLES = len(INITIAL_OBSTACLES)
     assert N_OBSTACLES <= N_OBSTACLES_MAX, f"Number of obstacles should be less than or equal to {N_OBSTACLES_MAX}"
     
 
-    # Q_SAFE = [1e5, 5e2, 1e-3, 1e-8, 1e-1, 5e-3, 5e-3, 5e2]
-    # QE_SAFE = [ 5e5, 1e2, 1e-3, 1e-8, 5e-3, 2e-3]
-    Q_SAFE = [5e3, 5e3, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-2]
-    QE_SAFE = [ 5e3, 1e1, 1e0, 1e-8, 5e-3, 2e-3]
+    Q_SAFE = [2e3, 5e2, 1e-7, 1e-8, 1e-1, 5e-3, 1e-1, 5e1]
+    QE_SAFE = [ 5e3, 1e1, 1e0, 1e-8, 5e-3, 2e1]
 
-    # Q_OBB = [1e5, 1e-16, 1e-8, 1e-8, 1e-3, 5e-3, 5e-3, 5e2]
-    # QE_OBB = [ 5e5, 1e-16, 1e-8, 1e-8, 5e-3, 2e-3]
+
     Q_OBB = [1e3, 1e-1, 1e-7, 1e-8, 1e-1, 5e-3, 1e-3, 5e-2]
     QE_OBB = [5e3, 1e-1, 1e0, 1e-8, 5e-3, 5e-3]
 
@@ -270,9 +268,19 @@ class Simulation:
             t0_pred = time.time()
             obb_J = [self.update_obstacle_positions(j, self.obstacles) for j in range(self.NUM_DISCRETIZATION_STEPS+1)]
 
-                
-            # closest_obstacle = self.closest_obstacle()
 
+            # # get each obstacle speed direction
+            # directions =  np.array([[self.obstacles[k][3] * np.cos(self.obstacles[k][2]),
+            #                          self.obstacles[k][3] * np.sin(self.obstacles[k][2])] 
+            #                             for k in range(self.N_OBSTACLES)])
+            # direction = np.array([0.22 * np.cos(self.x0[2]), 0.22 * np.sin(self.x0[2])])
+            # print(f"Directions: {directions}")
+            # # obsatcles are valid if speed direction is same as the car and X_obb[:2]-xN[:2] has same sign as speed direction
+            # print(f"vector difference {[self.obstacles[k][:2] - self.xN[0][:2] for k in range(self.N_OBSTACLES_MAX)]}" )
+            # print(f"speed vector dot vector difference {[np.dot(direction, self.obstacles[k][:2] - self.xN[0][:2]) for k in range(self.N_OBSTACLES_MAX)]}")
+            # print(f"speed vectors dot product {[np.dot(direction, directions[k]) for k in range(self.N_OBSTACLES_MAX)]}")
+            # # closest_obstacle_index = np.argmin([dist_obstacle_N[0][k] for k in valid_indexes])
+            # return 0
             for j in range(self.NUM_DISCRETIZATION_STEPS):
                 if i > 0:
                     X = self.acados_solver.get(j, "x")
@@ -280,9 +288,12 @@ class Simulation:
                     self.predSimX[i, j, :] = X
                 Q = self.Q_SAFE
                 Qe = self.QE_SAFE
+                # if np.any(dist_obstacle_N[j]) < self.DIST_THRESHOLD:
+                #     Q = self.Q_OBB
+                    # Qe = self.QE_OBB
+
                 
                 # Update the obstacle positions for each obstacle at each time step
-                # obb_j = self.update_obstacle_positions(j, self.obstacles)
 
                 yref = np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS, 0, 0, self.REFERENCE_VELOCITY, 0, 0, 0, 0])
                 self.predSim_obb[:, i, j, :] = obb_J[j]
@@ -305,6 +316,16 @@ class Simulation:
             self.tpred_sum += time.time() - t0_pred
             
             status = self.acados_solver.solve()
+            # if status != 0:
+            #     print(f"acados returned status {status}")
+            #     yref = np.array([self.s0, 0, 0, 0.0, 0, 0, 0, 0])
+            #     for j in range(self.NUM_DISCRETIZATION_STEPS):
+            #         self.acados_solver.set(j, "yref", yref)
+            #     self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "yref", yref)
+            #     status = self.acados_solver.solve()
+
+
+
 
 
             t_update = time.time()
@@ -353,15 +374,17 @@ class Simulation:
 
         plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
                             self.predSimX, self.predSim_obb, # predicted trajectories
-                            self.TRACK_FILE, self.folder_name, self.SAVE_FIG_NAME )#
+                            self.TRACK_FILE, )#self.folder_name, self.SAVE_FIG_NAME 
         
-        plotDist(self.simX, self.sim_obb, self.constraint, t, self.folder_name, "dist")
+        plotDist(self.simX, self.sim_obb, self.constraint, t, )#self.folder_name, "dist"
+
+        plotTTC(self.simX, self.sim_obb, self.constraint, t, )
 
         plotRes(self.simX, self.simU, t)
 
         plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
                       self.predSimX, self.predSim_obb, # predicted trajectories
-                        self.TRACK_FILE, self.folder_name,self.SAVE_GIF_NAME ) #
+                        self.TRACK_FILE,  ) #self.folder_name,self.SAVE_GIF_NAME
 
 
         if os.environ.get("ACADOS_ON_CI") is None:
