@@ -49,11 +49,15 @@ from matplotlib.patches import Ellipse
 import numpy as np
 import tqdm
 
-def initplot(filename='LMS_Track.txt'):
+def initplot(filename='LMS_Track.txt', scenario=1):
         #Setup plot
     with sns.axes_style("whitegrid"):
-        plt.ylim(bottom=-3.0,top=0.5)
-        plt.xlim(left=-1.75,right=1.75)
+        if scenario == 1:
+            plt.ylim(bottom=-3.0,top=0.5)
+            plt.xlim(left=-1.75,right=1.75)
+        elif scenario == 2:
+            plt.ylim(bottom=-1.75,top=1.75)
+            plt.xlim(left=-1.25,right=2.5)       
         plt.ylabel('y[m]')
         plt.xlabel('x[m]')
 
@@ -80,7 +84,8 @@ def initplot(filename='LMS_Track.txt'):
 
 def plotTrackProj(simX, sim_obb, # simulated trajectories
                     predSimX, predSim_obb, # predicted trajectories
-                    filename='LMS_Track.txt', save_path=None, save_name = None, fig = None, ax = None):
+                    filename='LMS_Track.txt', save_path=None, save_name = None, fig = None, ax = None, idx = None,
+                    scenario=1):
     
     # Load simulated data
     s=simX[:,0]
@@ -116,7 +121,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             fig, ax = plt.subplots(figsize=(10, 10))
         else:
             REAL_TIME_PLOTTING = True
-    initplot(filename)
+    initplot(filename, scenario)
 
     heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
     heatmap.set_clim(0, 0.25)
@@ -191,12 +196,16 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             ax.add_patch(circle2)
             ax.add_patch(circle3)
             ax.add_patch(rect)
+    closest = plt.Circle((x[0], y[0]), 0.05, color='r', alpha=1.0, fill=True)
+    ax.add_patch(closest)
 
 
 
     def update(i):
         line.set_data(x[:i], y[:i])
-
+        plot_idx = idx[i]
+        if plot_idx < 0:
+            closest.center = (1e3,1e3)
 
         for j in range(predX.shape[1]):
             [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
@@ -261,6 +270,13 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
                     pred_obb_rects[k][j].set_alpha(1.0)
 
+                    if plot_idx is not None:
+                        if k == plot_idx:
+                            closest.center = (x_pred_obb, y_pred_obb)
+
+
+
+
 
 
     ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),5), interval=10, repeat=False)
@@ -275,7 +291,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
 def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
                         predSimX, predSim_obb, # predicted trajectories
-                        filename='LMS_Track.txt', save_path = None, save_name = None):
+                        filename='LMS_Track.txt', save_path = None, save_name = None,
+                        scenario=1):
     # load track
 
     s=simX[:,0]
@@ -301,7 +318,8 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     # plot racetrack map
     plt.figure(figsize=(10,10))
 
-    initplot(filename)
+
+    initplot(filename, scenario)
     
 
     color = sns.color_palette("flare", x.shape[0])
@@ -368,7 +386,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     
 
 
-def plotRes(simX,simU,t):
+def plotRes(simX,simU,t, save_folder = None, save_name = None):
     # plot results
     with sns.axes_style("whitegrid"):
         plt.figure(figsize=(10,10), tight_layout=True)
@@ -386,6 +404,10 @@ def plotRes(simX,simU,t):
         plt.xlabel('t')
         plt.legend(['s','n','alpha','v','D','delta'])
         plt.grid(True)
+        if (save_name != None) and (save_folder !=None):
+            if os.path.exists(save_folder) == False:
+                os.makedirs(save_folder)
+            plt.savefig(save_folder + f"{save_name}.png")
 
 def plotalat(simX,simU,constraint,t):
     Nsim=t.shape[0]
@@ -426,7 +448,7 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         plt.xlabel('t')
         plt.ylim([0, 60.0])
         plt.ylabel('dist [m]')
-        if save_name != None:
+        if (save_name != None) and (save_folder !=None):
             if os.path.exists(save_folder) == False:
                 os.makedirs(save_folder)
             plt.savefig(save_folder + f"{save_name}.png")
@@ -456,6 +478,10 @@ def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         plt.xlabel('t')
         plt.ylim([0,10.0])
         plt.ylabel('predicted ttc [s]')
+        if (save_name != None) and (save_folder !=None):
+            if os.path.exists(save_folder) == False:
+                os.makedirs(save_folder)
+            plt.savefig(save_folder + f"{save_name}.png")
 
 def plot_results(path):
     # load results

@@ -272,7 +272,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.ttc_min = 1.0
+    constraint.ttc_min = 0.9 # s
     constraint.expr = vertcat(a_long, a_lat, n, D, delta, v,dist_matrix,  ttc_matrix)#
     # constraint.expr_0 = vertcat()#
 
