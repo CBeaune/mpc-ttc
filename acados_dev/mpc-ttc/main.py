@@ -106,7 +106,7 @@ class Simulation:
         # Load parameters from JSON file
         with open(f'{params_file}', 'r') as f:
             params = json.load(f)
-
+        self.SCENARIO = params["scenario"]
         self.TRACK_FILE = params["TRACK_FILE"]
         self.PREDICTION_HORIZON = params["PREDICTION_HORIZON"]
         self.TIME_STEP = params["TIME_STEP"]
@@ -126,23 +126,31 @@ class Simulation:
     
         if self.SCENARIO == 1:
             self.x0 = np.array([np.random.uniform(-1.0,-0.8), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
-            self.REFERENCE_VELOCITY = np.random.uniform(0.1,0.21)
+            self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1),
                                                 0.0, np.random.uniform(0.0, 0.00),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.4),
                                                     -np.pi, np.random.uniform(0.0, 0.0), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
+        elif self.SCENARIO == 3:
+            self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
+            self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
+            self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.45, 1.55), np.random.uniform(0.5, 1.0),
+                                                -np.pi/2, np.random.uniform(0.0, 0.01),
+                                                self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
+            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.7, 1.8), np.random.uniform(-1, -0.5),
+                                                    np.pi/2, np.random.uniform(0.0, 0.1), 
+                                                self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 2:
             self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
-            self.REFERENCE_VELOCITY = np.random.uniform(0.1,0.21)
-            self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.2, 1.3), np.random.uniform(0.5, 1.0),
-                                                -np.pi/2, np.random.uniform(0.0, 0.00),
+            self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
+            self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.2,1.3), np.random.uniform(0.5, 1.0),
+                                                -np.pi/2, np.random.uniform(0.0, 0.2),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
-            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.5, 1.6), np.random.uniform(-1, -0.5),
-                                                    np.pi/2, np.random.uniform(0.0, 0.0), 
+            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.57,1.6), np.random.uniform(-1.0, -0.5),
+                                                    np.pi/2, np.random.uniform(0.0, 0.1), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
-
 
         self.REFERENCE_PROGRESS = self.REFERENCE_VELOCITY * self.PREDICTION_HORIZON
 
@@ -281,10 +289,10 @@ class Simulation:
         # print("Valid indexes s ", valid_indexes_s)
         valid_indexes_dist = np.where(np.abs(s_obb-self.s0)<self.DIST_THRESHOLD)[0]
         # print("Valid indexes dist ", valid_indexes_dist)
-        # valid_indexes_n = np.where(n_obb < self.track_width/2)[0]
+        valid_indexes_n = np.where(n_obb < self.track_width/2)[0]
         # print("Valid indexes n ", valid_indexes_n)
         from functools import reduce
-        valid_indexes = reduce(np.intersect1d, (valid_indexes_s,  valid_indexes_dist))
+        valid_indexes = reduce(np.intersect1d, (valid_indexes_s,  valid_indexes_dist, valid_indexes_n))
         # print("Valid indexes ", valid_indexes)
         if len(valid_indexes) == 0:
             # print("No valid indexes")
@@ -441,9 +449,9 @@ class Simulation:
             plt.show()
 
 if __name__ == "__main__":
-    np.random.seed(0)
-    params_file = 'params/params.json'
-    sim = Simulation(SAVE=False, scenario = 1, params_file=params_file)
+    np.random.seed(5)
+    params_file = 'params/params1.json'
+    sim = Simulation(SAVE=False, params_file=params_file)
     sim.run()
     
     res = sim.plot_results() 

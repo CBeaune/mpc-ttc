@@ -62,7 +62,7 @@ def initplot(filename='LMS_Track.txt', scenario=1):
         plt.xlabel('x[m]')
 
         # Plot center line
-        [Sref,Xref,Yref,Psiref,_]=getTrack(filename)
+        [Sref,Xref,Yref,Psiref,Kapparef]=getTrack(filename)
         plt.plot(Xref,Yref,'-',color='k',linewidth=.5)
 
         # Draw Trackboundaries
@@ -75,12 +75,22 @@ def initplot(filename='LMS_Track.txt', scenario=1):
         plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
 
         # Draw opposite lane
-        Xboundleft=Xref-track_width*np.sin(Psiref)
-        Yboundleft=Yref+track_width*np.cos(Psiref)
-        Xboundright=Xref-3*track_width/2*np.sin(Psiref)
-        Yboundright=Yref+3*track_width/2*np.cos(Psiref)
-        plt.plot(Xboundleft,Yboundleft,color='k',linewidth=0.5)
-        plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
+        if np.all(Kapparef<=0):
+            
+            Xboundleft=Xref-track_width*np.sin(Psiref)
+            Yboundleft=Yref+track_width*np.cos(Psiref)
+            Xboundright=Xref-3*track_width/2*np.sin(Psiref)
+            Yboundright=Yref+3*track_width/2*np.cos(Psiref)
+            plt.plot(Xboundleft,Yboundleft,color='k',linewidth=0.5)
+            plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
+        else:
+            Xboundleft1=Xboundleft - 0.3/2
+            Yboundleft1=Yboundleft + 0.3/2 
+            Xboundright1=Xboundleft - 2*0.3/2
+            Yboundright1=Yboundleft + 2*0.3/2
+            plt.plot(Xboundleft1,Yboundleft1,color='k',linewidth=0.5)
+            plt.plot(Xboundright1,Yboundright1,color='k',linewidth=2)
+
 
 def plotTrackProj(simX, sim_obb, # simulated trajectories
                     predSimX, predSim_obb, # predicted trajectories

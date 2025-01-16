@@ -1,5 +1,5 @@
 from tracks.readDataFcn import getTrack
-from plotFcn import plotTrackProj
+from plotFcn import plotTrackProj, initplot
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -114,41 +114,130 @@ def rounded_rectangle(w, h, r, num_points_corner=20):
 
 
 
-w = 2.5  # Width
-h = 2 # Height
-r = 0.25  # Corner radius
-x,y,psi,curvature = rounded_rectangle(w, h, r, num_points_corner=100)
-s = np.cumsum(np.hypot(np.diff(x), np.diff(y)))
-x = x[:-1]
-y = y[:-1]
+# w = 2.5  # Width
+# h = 2 # Height
+# r = 0.25  # Corner radius
+# x,y,psi,curvature = rounded_rectangle(w, h, r, num_points_corner=100)
+# s = np.cumsum(np.hypot(np.diff(x), np.diff(y)))
+# x = x[:-1]
+# y = y[:-1]
 
-# Plot the rounded rectangle
-plt.figure(figsize=(8, 6))
-plt.plot(x, marker=".", linestyle="-", label="x")
-plt.plot(y, marker=".", linestyle="-", label="y")
-plt.title("Rounded Rectangle")
-plt.xlabel("X")
-plt.ylabel("Y")
-plt.legend()
-plt.grid()
+# # Plot the rounded rectangle
+# plt.figure(figsize=(8, 6))
+# plt.plot(x, marker=".", linestyle="-", label="x")
+# plt.plot(y, marker=".", linestyle="-", label="y")
+# plt.title("Rounded Rectangle")
+# plt.xlabel("X")
+# plt.ylabel("Y")
+# plt.legend()
+# plt.grid()
 
-plt.figure(figsize=(8, 6))
-plt.plot(s, np.mod(psi, 2*np.pi), marker=".", linestyle="-")
-plt.plot(s, curvature)
-plt.gca().set_aspect('equal', adjustable='box')
-plt.title("Rounded Rectangle")
-plt.xlabel("s")
-plt.grid()
-plt.show()
-
-# np.savetxt("acados_dev/race_cars/tracks/LMS_Track6.txt", np.column_stack((s, x, y, psi, curvature)), delimiter=" ", fmt="%s")
-# plotTrackProj(trajectories, 'LMS_Track5.txt')
+# plt.figure(figsize=(8, 6))
+# plt.plot(s, np.mod(psi, 2*np.pi), marker=".", linestyle="-")
+# plt.plot(s, curvature)
+# plt.gca().set_aspect('equal', adjustable='box')
+# plt.title("Rounded Rectangle")
+# plt.xlabel("s")
+# plt.grid()
 # plt.show()
 
-# find if s is increasing
+# # np.savetxt("acados_dev/race_cars/tracks/LMS_Track6.txt", np.column_stack((s, x, y, psi, curvature)), delimiter=" ", fmt="%s")
+# # plotTrackProj(trajectories, 'LMS_Track5.txt')
+# # plt.show()
 
-for i in range(len(s)-1):
-    if s[i] >= s[i+1]:
-        print(i)
+# # find if s is increasing
 
+# for i in range(len(s)-1):
+#     if s[i] >= s[i+1]:
+#         print(i)
+
+
+Sref, Xref, Yref, Psiref, Kapparef = getTrack("LMS_Track6.txt")
+
+s,x,y,psi,curvature = Sref[:100], Xref[:100], Yref[:100], Psiref[:100], Kapparef[:100]
+
+while x[-1] < 1.5:
+    x= np.append(x, x[-1]+ 0.01)
+    y= np.append(y, y[-1])
+    psi = np.append(psi, psi[-1])
+    s = np.append(s, s[-1]+0.01)
+    curvature = np.append(curvature, curvature[-1])
+print(len(x))
+n = len(x)-1
+i= 100
+while i<200:
+    i+=1
+    x= np.append(x, x[n]-Xref[100]+Xref[i])
+    y= np.append(y, y[n]-Yref[i])
+    psi = np.append(psi, -Psiref[i])
+    curvature = np.append(curvature, -Kapparef[i])
+while i < 300:
+    i+=1
+    x= np.append(x, x[-1])
+    y= np.append(y, y[n]-Yref[i])
+    psi = np.append(psi, -Psiref[i])
+    curvature = np.append(curvature, -Kapparef[i])
+n = len(x)-1
+while i < 400:
+    i+=1
+    x= np.append(x, x[n]-Xref[300]+Xref[i])
+    y= np.append(y, y[n]-Yref[i])
+    psi = np.append(psi, -Psiref[i])
+    curvature = np.append(curvature, -Kapparef[i])
+n = len(x)-1
+psi = np.abs(psi)
+while i < 500:
+    i+=1
+    x = np.append(x, x[-1]-0.01)
+    y = np.append(y, y[-1])
+    psi = np.append(psi, -psi[n])
+    curvature = np.append(curvature, curvature[-1])
+n = len(x)-1
+while i < 600:
+    i+=1
+    x = np.append(x, x[n]-Xref[500]+Xref[i])
+    y = np.append(y, y[n]+Yref[500]-Yref[i])
+    psi = np.append(psi, Psiref[i])
+    curvature = np.append(curvature, -Kapparef[i])
+
+s = np.cumsum(np.hypot(np.diff(x), np.diff(y)))
+s = np.insert(s, 0, 0)
+# while i < 1000:
+#     i+=1
+#     x = np.append(x, x[-1])
+#     y = np.append(y, y[-1]-0.01)
+#     psi = np.append(psi, psi[-1])
+#     s = np.append(s, s[-1]+0.01)
+#     curvature = np.append(curvature, curvature[-1])
+
+plt.plot(x, y)
+plt.plot(Xref[:len(x)], Yref[:len(x)])
+
+plt.figure()
+plt.plot(s, psi)
+plt.plot(Sref[:len(s)], Psiref[:len(s)])
+
+plt.figure()
+plt.plot(s, curvature)
+plt.plot(Sref[:len(s)], Kapparef[:len(s)])
+
+plt.show()
+
+np.savetxt("tracks/LMS_Track7.txt", np.column_stack((s, x, y, psi, curvature)), delimiter=" ", fmt="%s")
+
+# s = np.append(s, Sref[100:200])
+# x = np.append(x, Xref[100:200])
+# y = np.append(y, -Yref[100:200])
+# psi = np.append(psi, -Psiref[100:200])
+# curvature = np.append(curvature, -Kapparef[100:200])
+
+# s = np.append(s, Sref[200:])
+# x = np.append(x, Xref[200:])
+# y = np.append(y, -Yref[200:])
+# psi = np.append(psi, -Psiref[200:])
+# curvature = np.append(curvature, -Kapparef[200:])
+
+# np.savetxt("tracks/LMS_Track7.txt", np.column_stack((s, x, y, psi, curvature)), delimiter=" ", fmt="%s")
+initplot(filename='LMS_Track7.txt', scenario=1)
+plt.show()
 

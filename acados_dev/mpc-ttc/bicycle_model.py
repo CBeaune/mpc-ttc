@@ -211,12 +211,12 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     
     # Ellipses parameters
     constraint.dist_min = 0.0  
-    α_0 = obb_a + 2*r #+ r #minimum distance between covering circles centers including ellipse axes
-    β_0 = obb_b + 2*r #+ r
-    α1 = obb1_a + 2*r #+ r
-    β1 = obb1_b + 2*r #+ r
-    α2 = obb2_a + 2*r #+ r
-    β2 = obb2_b + 2*r #+ r
+    α_0 = obb_a + 2*r + r #minimum distance between covering circles centers including ellipse axes
+    β_0 = obb_b + 2*r + r
+    α1 = obb1_a + 2*r + r
+    β1 = obb1_b + 2*r + r
+    α2 = obb2_a + 2*r + r
+    β2 = obb2_b + 2*r + r
 
     α = vertcat(α_0, α1, α2)
     β = vertcat(β_0, β1, β2)
