@@ -1,5 +1,4 @@
 
-*.json
 data*
 acados/*
 __pycache__*
@@ -14,3 +13,4 @@ results/*
 *.png
 *.pdf
 sim*
+acados_ocp*

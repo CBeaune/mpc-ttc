@@ -2,7 +2,8 @@
 import time
 import os
 import numpy as np
-from acados_settings_dev import acados_settings
+from acados_settings_dev import acados_settings, acados_settings_ttc
+
 from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes, plotTTC
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
@@ -122,16 +123,16 @@ class Simulation:
         self.QE_OBB = params["QE_OBB"]
         self.Sgoal = params["Sgoal"]
         self.cov_noise = np.diag(params["cov_noise"]) # np.diag([0.05**2, 0.05**2]) #np.diag([0.0**2, 0.0**2])
-
+        ttc = bool(params["ttc"])
     
         if self.SCENARIO == 1:
             self.x0 = np.array([np.random.uniform(-1.0,-0.8), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1),
-                                                0.0, np.random.uniform(0.0, 0.00),
+                                                0.0, np.random.uniform(0.0, 0.05),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
-            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.4),
-                                                    -np.pi, np.random.uniform(0.0, 0.0), 
+            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.3),
+                                                    -np.pi, np.random.uniform(0.0,0.0),  #np.random.uniform(0.05, 0.1), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 3:
             self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
@@ -143,7 +144,7 @@ class Simulation:
                                                     np.pi/2, np.random.uniform(0.0, 0.1), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 2:
-            self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
+            self.x0 = np.array([np.random.uniform(-0.3, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.2,1.3), np.random.uniform(0.5, 1.0),
                                                 -np.pi/2, np.random.uniform(0.0, 0.2),
@@ -164,7 +165,8 @@ class Simulation:
 
 
 
-        self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim, self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN = self.initialize_simulation()
+        [self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim,
+            self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN] = self.initialize_simulation(ttc)
         self.s0 = self.model.x0[0]
         self.obstacles = self.INITIAL_OBSTACLES
         self.obstacles0 = self.INITIAL_OBSTACLES
@@ -245,12 +247,16 @@ class Simulation:
     
 
 
-    def initialize_simulation(self):
+    def initialize_simulation(self, ttc=True):
         """Initialize the simulation parameters and structures."""
         track = self.TRACK_FILE
         Sref, _, _, _, _ = getTrack(track)
         self.L_TRACK = Sref[-1]
-        constraint, model, acados_solver = acados_settings(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
+        if ttc:
+            constraint, model, acados_solver, _ = acados_settings_ttc(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
+                                                            self.x0)
+        else:
+            constraint, model, acados_solver, _ = acados_settings(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
                                                             self.x0)
         nx = model.x.rows()
         nu = model.u.rows()
@@ -277,7 +283,7 @@ class Simulation:
         xN = np.zeros((self.NUM_DISCRETIZATION_STEPS, 3))
         for i in range(self.NUM_DISCRETIZATION_STEPS):
             xN[i,:] = constraint.pose(acados_solver.get(i, "x"))
-        return Sref, constraint, model, acados_solver, nx, nu, Nsim, simX, predSimX, simU, sim_obb, predSim_obb, xN
+        return [Sref, constraint, model, acados_solver, nx, nu, Nsim, simX, predSimX, simU, sim_obb, predSim_obb, xN]
     
     def closest_obstacle(self):
         """Find the closest obstacle to the car front."""
@@ -377,6 +383,7 @@ class Simulation:
             self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "yref", yref_N)
             self.acados_solver.cost_set(self.NUM_DISCRETIZATION_STEPS, 'W', np.diag(Qe))
             
+            
             self.tpred_sum += time.time() - t0_pred
             
             status = self.acados_solver.solve()
@@ -384,10 +391,13 @@ class Simulation:
                 return 0
 
             t_update = time.time()
-            self.x0 = self.acados_solver.get(0, "x")
+            self.x0 = self.acados_solver.get(1, "x")
             u0 = self.acados_solver.get(0, "u")
-            self.simX[i, :] = self.x0
+            self.simX[i, :] = self.acados_solver.get(0, "x")
             self.simU[i, :] = u0
+
+            t_update = time.time()
+            
 
             
             self.obstacles = self.update_obstacle_positions(i, self.obstacles0)
@@ -395,7 +405,7 @@ class Simulation:
             [self.obstacles[0][7], self.obstacles[1][7], self.obstacles[2][7]] = [self.obstacles0[k][7] for k in range(self.N_OBSTACLES)]
             [self.obstacles[0][8], self.obstacles[1][8], self.obstacles[2][8]] = [self.obstacles0[k][8] for k in range(self.N_OBSTACLES)]
             self.sim_obb[:, i, :] = self.obstacles
-            self.x0 = self.acados_solver.get(1, "x")
+            
             self.acados_solver.set(0, "lbx", self.x0)
             self.acados_solver.set(0, "ubx", self.x0)
             self.s0 = self.x0[0]
@@ -449,12 +459,12 @@ class Simulation:
             plt.show()
 
 if __name__ == "__main__":
-    np.random.seed(5)
-    params_file = 'params/params1.json'
+    np.random.seed(2)
+    params_file = 'params/scenario1.json'
     sim = Simulation(SAVE=False, params_file=params_file)
-    sim.run()
+    res = sim.run()
     
-    res = sim.plot_results() 
+    sim.plot_results() 
     if res == 0 :
         print("Simulation failed")
     else:
