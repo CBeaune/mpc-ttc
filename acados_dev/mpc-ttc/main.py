@@ -129,16 +129,16 @@ class Simulation:
             self.x0 = np.array([np.random.uniform(-1.0,-0.8), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1),
-                                                0.0, np.random.uniform(0.0, 0.05),
+                                                0.0, np.random.uniform(0.0, 0.1),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.3),
-                                                    -np.pi, np.random.uniform(0.0,0.0),  #np.random.uniform(0.05, 0.1), 
+                                                    -np.pi, np.random.uniform(0.0, 0.1), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 3:
             self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.45, 1.55), np.random.uniform(0.5, 1.0),
-                                                -np.pi/2, np.random.uniform(0.0, 0.01),
+                                                -np.pi/2, np.random.uniform(0.0, 0.15),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.7, 1.8), np.random.uniform(-1, -0.5),
                                                     np.pi/2, np.random.uniform(0.0, 0.1), 
@@ -253,10 +253,10 @@ class Simulation:
         Sref, _, _, _, _ = getTrack(track)
         self.L_TRACK = Sref[-1]
         if ttc:
-            constraint, model, acados_solver, _ = acados_settings_ttc(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
+            constraint, model, acados_solver = acados_settings_ttc(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
                                                             self.x0)
         else:
-            constraint, model, acados_solver, _ = acados_settings(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
+            constraint, model, acados_solver = acados_settings(self.PREDICTION_HORIZON, self.NUM_DISCRETIZATION_STEPS, track,
                                                             self.x0)
         nx = model.x.rows()
         nu = model.u.rows()
@@ -323,6 +323,7 @@ class Simulation:
 
         for i in tqdm.tqdm(range(self.Nsim)):
             
+            
 
             t = time.time()           
             t0_obb = time.time()
@@ -384,17 +385,49 @@ class Simulation:
             self.acados_solver.cost_set(self.NUM_DISCRETIZATION_STEPS, 'W', np.diag(Qe))
             
             
+            
             self.tpred_sum += time.time() - t0_pred
             
             status = self.acados_solver.solve()
-            if status != 0:
-                return 0
-
-            t_update = time.time()
-            self.x0 = self.acados_solver.get(1, "x")
+            x0 = self.acados_solver.get(1, "x")
             u0 = self.acados_solver.get(0, "u")
             self.simX[i, :] = self.acados_solver.get(0, "x")
+            current_state = self.simX[i-1, :] if i > 0 else self.x0
             self.simU[i, :] = u0
+            if status != 0:
+                print(f"acados returned status {status} at time  {i * self.TIME_STEP}")
+                self.acados_solver.reset()
+                self.acados_solver.load_iterate("acados_ocp_iterate.json")
+                self.acados_solver.set(0, "lbx", current_state)
+                self.acados_solver.set(0, "ubx", current_state)
+                self.acados_solver.set(0, "x", current_state)
+
+                vref = 0.1
+
+                sref = self.s0 + vref * self.PREDICTION_HORIZON
+                Q = [1, 100, 1, 1, 1, 1, 100,100]
+                Qe = [1, 100, 1, 1, 1, 1]
+
+                for j in range(self.NUM_DISCRETIZATION_STEPS):
+                    self.acados_solver.set(j, "x", current_state)
+                    self.acados_solver.set(j, "p", np.array(np.array(obb_J[j]).reshape((self.n_params))))
+                    self.acados_solver.set(j, "yref", np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS,
+                                                                 0, 0, vref, 0, 0, 0, 0]))
+                    self.acados_solver.cost_set(j, 'W', np.diag(Q))
+                yref_N = np.array([sref, 0, 0, vref, 0, 0])
+                self.acados_solver.set(self.NUM_DISCRETIZATION_STEPS, "yref", yref_N)
+                self.acados_solver.cost_set(self.NUM_DISCRETIZATION_STEPS, 'W', np.diag(Qe))
+                status = self.acados_solver.solve()
+                x0 = self.acados_solver.get(1, "x")
+                u0 = self.acados_solver.get(0, "u")
+                self.simX[i, :] = self.acados_solver.get(0, "x")
+                current_state = self.simX[i-1, :] if i > 0 else self.x0
+                self.simU[i, :] = u0
+
+            self.acados_solver.store_iterate("acados_ocp_iterate.json", overwrite=True, verbose=False)
+            self.x0 = x0
+            t_update = time.time()
+            
 
             t_update = time.time()
             
@@ -459,7 +492,7 @@ class Simulation:
             plt.show()
 
 if __name__ == "__main__":
-    np.random.seed(2)
+    np.random.seed(0)
     params_file = 'params/scenario1.json'
     sim = Simulation(SAVE=False, params_file=params_file)
     res = sim.run()

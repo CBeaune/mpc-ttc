@@ -204,6 +204,7 @@ def acados_settings(Tf, N, track_file, x0):
     ocp.solver_options.nlp_solver_max_iter = 300
     ocp.solver_options.tol = 5e-1
     ocp.solver_options.timeout_max_time = 1e-3
+    
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
@@ -211,7 +212,7 @@ def acados_settings(Tf, N, track_file, x0):
 
     acados_integrator = AcadosSimSolver(ocp, json_file="acados_ocp.json", verbose=False)
 
-    return constraint, model, acados_solver, acados_integrator
+    return constraint, model, acados_solver
 
 
 # TTC version of NMPC problem
@@ -378,13 +379,13 @@ def acados_settings_ttc(Tf, N, track_file, x0):
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
     # ocp.solver_options.nlp_solver_step_length = 0.05
-    ocp.solver_options.nlp_solver_max_iter = 300
+    ocp.solver_options.nlp_solver_max_iter = 1000
     ocp.solver_options.tol = 5e-1
-    ocp.solver_options.timeout_max_time = 1e-3
+    ocp.solver_options.timeout_max_time = 1e-2
     # ocp.solver_options.nlp_solver_tol_comp = 1e-1
 
     # create solver
     acados_solver = AcadosOcpSolver(ocp, json_file="acados_ocp.json", verbose=False)
     acados_integrator = AcadosSimSolver(ocp, json_file="acados_ocp.json", verbose=False)
 
-    return constraint, model, acados_solver, acados_integrator
+    return constraint, model, acados_solver

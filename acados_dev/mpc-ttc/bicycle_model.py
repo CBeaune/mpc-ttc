@@ -158,18 +158,18 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     track_width = 0.3
     r = 1/LENGTH * (WIDTH**2 + LENGTH**2)/4
     model.n_min = - track_width/2  + r  # right border of the track [m]
-    model.n_max = track_width + r  # middle of the opposite lane [m]
+    model.n_max = track_width # middle of the opposite lane [m]
 
     # state bounds
-    model.throttle_min = -1.0
-    model.throttle_max = 1.0
+    model.throttle_min = -0.5
+    model.throttle_max = 0.5
 
     model.delta_min = -0.40  # minimum steering angle [rad]
     model.delta_max = 0.40  # maximum steering angle [rad]
 
     # input bounds
-    model.ddelta_min = -2.0  # minimum change rate of stering angle [rad/s]
-    model.ddelta_max = 2.0  # maximum change rate of steering angle [rad/s]
+    model.ddelta_min = -1.0  # minimum change rate of stering angle [rad/s]
+    model.ddelta_max = 1.0  # maximum change rate of steering angle [rad/s]
     model.dthrottle_min = -5  # -10.0  # minimum throttle change rate
     model.dthrottle_max = 5 # 10.0  # maximum throttle change rate
 
