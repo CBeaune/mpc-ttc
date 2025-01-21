@@ -72,16 +72,18 @@ def acados_settings(Tf, N, track_file, x0):
     ny_e = nx 
 
     n_obb = 3 # number of obstacles
-    n_dist_circle = 3 # number of distance to circle constraints per obstacle
+    n_dist_circle = 4 # number of distance to circle constraints per obstacle
     n_constraints = 6 # number of constraints
-    n_dist_tot = 3 * n_obb * n_dist_circle
+    n_dist_tot = 4 * n_obb * n_dist_circle
     n_ttc_tot = 0
+    print('dist constraints ', n_dist_tot )
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
 
     nsbx = 1
     nh = constraint.expr.shape[0]
     hard_constraints = n_dist_tot + n_ttc_tot + 1 
     nsh = nh - hard_constraints
+    print('slack constraints ',nsh)
     ns = nsh + nsbx
 
     # discretization
@@ -250,17 +252,20 @@ def acados_settings_ttc(Tf, N, track_file, x0):
     ny_e = nx 
 
     n_obb = 3 # number of obstacles
-    n_dist_circle = 3 # number of distance to circle constraints per obstacle
+    n_dist_circle = 4 # number of distance to circle constraints per obstacle
     n_constraints = 6 # number of constraints
-    n_dist_tot = 3 * n_obb * n_dist_circle
-    n_ttc_tot = 3 * n_obb * n_dist_circle
+    n_dist_tot = 4 * n_obb * n_dist_circle
+    n_ttc_tot = 4 * n_obb * n_dist_circle
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
-
+    
+    print('dist constraints ', n_dist_tot )
     nsbx = 1
     nh = constraint.expr.shape[0]
     hard_constraints = n_dist_tot + n_ttc_tot + 1 
     nsh = nh - hard_constraints
     ns = nsh + nsbx
+    print('slack constraints ',nsh)
+    print("constraints ", nh)
 
     # discretization
     ocp.solver_options.N_horizon = N

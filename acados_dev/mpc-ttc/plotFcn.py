@@ -151,6 +151,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                                  r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
     pred_circles3 = [plt.Circle((x[0] + r * np.cos(alpha[0]), y[0] + r * np.sin(alpha[0])),
                                  r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
+    pred_circles4 = [plt.Circle((x[0] + LENGTH * np.cos(alpha[0]), y[0] + LENGTH * np.sin(alpha[0])),
+                                    r, color=color_pred[j], alpha=0.3, fill=False) for j in range(predX.shape[1])]
     pred_rects = [plt.Rectangle((x[0]- LENGTH/2,y[0]- WIDTH/2), LENGTH, WIDTH, 
                                 angle = alpha[0]*180/np.pi,  alpha= 0.3,  fill=False, rotation_point = 'center', color=color_pred[j])
                    for j in range(predX.shape[1])]
@@ -180,12 +182,15 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                                         2*a + 2*r , 2*b + 2*r, angle = theta*180/np.pi, alpha=0.3, fill=False, color=color_pred[j])
                         for j in range(predX.shape[1])]
         
+        pred_obb_ellipse4 = [Ellipse((xobb[k,0] + LENGTH/2 * np.cos(psi_obb[k,0]), yobb[k,0] + LENGTH/2 * np.sin(psi_obb[k,0])),
+                                        2*a + 2*r , 2*b + 2*r, angle = theta*180/np.pi, alpha=0.3, fill=False, color=color_pred[j])
+                            for j in range(predX.shape[1])]
         pred_obb_shape = [plt.Rectangle((xobb[k,0]- LENGTH/2, yobb[k,0]- WIDTH/2), LENGTH, WIDTH, angle = psi_obb[k,0]*180/np.pi ,
                                         fill=False, alpha= 0.3, color=color_pred[j], rotation_point = 'center')
                         for j in range(predX.shape[1])]
 
         pred_obb_circles.append([pred_obb_circles1, pred_obb_circles2, pred_obb_circles3])
-        pred_obb_ellipses.append([pred_obb_ellipse1, pred_obb_ellipse2, pred_obb_ellipse3])
+        pred_obb_ellipses.append([pred_obb_ellipse1, pred_obb_ellipse2, pred_obb_ellipse3, pred_obb_ellipse4])
         pred_obb_rects.append(pred_obb_shape)
 
     for k in range(predobbX.shape[0]): # for each obstacle
@@ -195,10 +200,11 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             # ax.add_patch(circle3)
             ax.add_patch(rect)
         
-        for ellipse1, ellipse2, ellipse3 in zip(pred_obb_ellipses[k][0],pred_obb_ellipses[k][1],pred_obb_ellipses[k][2]):
+        for ellipse1, ellipse2, ellipse3, ellipse4 in zip(pred_obb_ellipses[k][0],pred_obb_ellipses[k][1],pred_obb_ellipses[k][2], pred_obb_ellipses[k][3]):
             ax.add_patch(ellipse1)
             ax.add_patch(ellipse2)
             ax.add_patch(ellipse3)
+            ax.add_patch(ellipse4)
         
     for circle1, circle2, circle3, rect in zip(pred_circles1, pred_circles2, pred_circles3, pred_rects):
         with sns.axes_style("whitegrid"):
@@ -206,16 +212,13 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             ax.add_patch(circle2)
             ax.add_patch(circle3)
             ax.add_patch(rect)
-    closest = plt.Circle((x[0], y[0]), 0.05, color='r', alpha=1.0, fill=True)
-    ax.add_patch(closest)
+    
 
 
 
     def update(i):
         line.set_data(x[:i], y[:i])
-        plot_idx = idx[i]
-        if plot_idx < 0:
-            closest.center = (1e3,1e3)
+        
 
         for j in range(predX.shape[1]):
             [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
@@ -233,6 +236,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                 pred_circles2[j].fill=True
                 pred_circles3[j].set_alpha(0.5)
                 pred_circles3[j].fill=True
+                pred_circles4[j].set_alpha(0.5)
+                pred_circles4[j].fill=True
                 pred_rects[j].set_alpha(1.0)
 
             for k in range(predobbX.shape[0]): # for each obstacle
@@ -260,6 +265,12 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                 pred_obb_ellipses[k][2][j].center = (x_pred_obb + r * np.cos(alpha_pred_obb),
                                                     y_pred_obb + r * np.sin(alpha_pred_obb))
                 pred_obb_ellipses[k][2][j].angle = theta * 180 / np.pi
+
+                pred_obb_ellipses[k][3][j].height = 2*b + 2*r
+                pred_obb_ellipses[k][3][j].width = 2*a + 2*r
+                pred_obb_ellipses[k][3][j].center = (x_pred_obb + LENGTH/2 * np.cos(alpha_pred_obb),
+                                                    y_pred_obb +  LENGTH/2 * np.sin(alpha_pred_obb))
+                pred_obb_ellipses[k][3][j].angle = theta * 180 / np.pi
                 
                 pred_obb_rects[k][j].set_xy((x_pred_obb - LENGTH/2, y_pred_obb - WIDTH/2))
                 pred_obb_rects[k][j].angle = alpha_pred_obb * 180 / np.pi
@@ -277,19 +288,19 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                     pred_obb_ellipses[k][1][j].fill=True
                     pred_obb_ellipses[k][2][j].set_alpha(0.5)
                     pred_obb_ellipses[k][2][j].fill=True
+                    pred_obb_ellipses[k][3][j].set_alpha(0.5)
+                    pred_obb_ellipses[k][3][j].fill=True
 
                     pred_obb_rects[k][j].set_alpha(1.0)
 
-                    if plot_idx is not None:
-                        if k == plot_idx:
-                            closest.center = (x_pred_obb, y_pred_obb)
+                    
 
 
 
 
 
 
-    ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),5), interval=10, repeat=False)
+    ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),10), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
     if not REAL_TIME_PLOTTING:
         plt.show()
@@ -319,7 +330,6 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     psi_obb=sim_obb[:,:,2]
     v_obb=sim_obb[:,:,3]
 
-
     
     LENGTH = sim_obb[0,0,4]
     WIDTH = sim_obb[0,0,5]
@@ -338,7 +348,7 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     r = 1/LENGTH * (WIDTH**2/4 + LENGTH**2/4)
     for i in tqdm.tqdm(range(x.shape[0])):
         
-        if i %10:
+        if i %10 == 0:
             
             
             circles1 = plt.Circle((x[i] - r * np.cos(alpha[i]), y[i] - r * np.sin(alpha[i])),
@@ -346,9 +356,12 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
             circles2 = plt.Circle((x[i], y[i]), r, color=color[i], alpha = 0.2, fill=False)
             circles3 = plt.Circle((x[i] + r * np.cos(alpha[i]), y[i] + r * np.sin(alpha[i])),
                                     r, color=color[i], alpha = 0.2, fill=False)
+            circles4 = plt.Circle((x[i] + 1.5 * r * np.cos(alpha[i]), y[i] + 1.5 * r * np.sin(alpha[i])),
+                                    r, color=color[i], alpha = 0.2, fill=False)
             plt.gca().add_patch(circles1)
             plt.gca().add_patch(circles2)
             plt.gca().add_patch(circles3)
+            plt.gca().add_patch(circles4)
             
             rectangles = plt.Rectangle((x[i]-LENGTH/2, y[i]-WIDTH/2), LENGTH, WIDTH,
                                             angle=alpha[i]*180/np.pi, color=color[i],  rotation_point = 'center',
@@ -367,9 +380,12 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
                 circles2 = plt.Circle((xobb[j,i], yobb[j,i]), r, color=color[i], alpha = 0.2, fill=False)
                 circles3 = plt.Circle((xobb[j,i] + r * np.cos(psi_obb[j,i]), yobb[j,i] + r * np.sin(psi_obb[j,i])),
                                         r, color=color[i], alpha = 0.2, fill=False)
+                circles4 = plt.Circle((xobb[j,i] + 1.5* r * np.cos(psi_obb[j,i]), yobb[j,i] + 1.5 * r * np.sin(psi_obb[j,i])),
+                                        r, color=color[i], alpha = 0.2, fill=False)
                 plt.gca().add_patch(circles1)
                 plt.gca().add_patch(circles2)
                 plt.gca().add_patch(circles3)
+                plt.gca().add_patch(circles4)
                 plt.gca().add_patch(rectangles)
 
     # Draw driven trajectory
@@ -401,15 +417,15 @@ def plotRes(simX,simU,t, save_folder = None, save_name = None):
     with sns.axes_style("whitegrid"):
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.subplot(2, 1, 1)
-        plt.step(t, simU[:,0])
-        plt.step(t, simU[:,1])
+        plt.step(t, simU[:t.shape[0],0])
+        plt.step(t, simU[:t.shape[0],1])
         plt.title('closed-loop simulation')
         plt.legend(['dD','ddelta'])
         plt.ylabel('u')
         plt.xlabel('t')
         plt.grid(True)
         plt.subplot(2, 1, 2)
-        plt.plot(t, simX[:,:])
+        plt.plot(t, simX[:t.shape[0],:])
         plt.ylabel('x')
         plt.xlabel('t')
         plt.legend(['s','n','alpha','v','D','delta'])
@@ -440,16 +456,16 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('Distance to obstacles covering ellipses centers')
-        dist=np.zeros((Nsim, N_obb*3*3))
+        dist=np.zeros((Nsim, N_obb*4*4))
         for i in range(Nsim):
             dist_vector = constraint.dist(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
-            for j in range(27):
+            for j in range(N_obb*4*4):
                 dist[i,j]= dist_vector[j]
         k=0
-        for j in range(0,27):
-            if j > 8:
+        for j in range(0,N_obb*4*4):
+            if j > 15:
                 k = 1 
-            if j > 17:
+            if j > 31:
                 k = 2
             plt.plot(t,dist[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
         
@@ -470,20 +486,20 @@ def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('TTC for obstacles covering ellipses centers')
-        ttc=np.ones((Nsim, N_obb*3*3))*1e3
+        ttc=np.ones((Nsim, N_obb*4*4))*1e3
         for i in range(Nsim):
             ttc_vector = constraint.ttc(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
-            for j in range(27):
+            for j in range(N_obb*4*4):
                 ttc[i,j]= ttc_vector[j]
         k=0
-        for j in range(0,27):
-            if j > 8:
+        for j in range(0,N_obb*4*4):
+            if j > 15:
                 k = 1 
-            if j > 17:
+            if j > 31:
                 k = 2
             plt.plot(t,ttc[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
         
-        plt.plot([t[0],t[-1]],[constraint.ttc_min, constraint.ttc_min],'k--', label='min distance allowed')   
+        plt.plot([t[0],t[-1]],[constraint.ttc_min, constraint.ttc_min],'k--', label='min ttc allowed')   
         plt.legend()
         plt.xlabel('t')
         plt.ylim([0,10.0])
@@ -495,22 +511,54 @@ def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
 
 def plot_results(path):
     # load results
-    simX = np.load(path + '/simX.npy')
-    simU = np.load(path + '/simU.npy')
-    sim_obb = np.load(path + '/sim_obb.npy')
-    predSimX = np.load(path + '/predSimX.npy')
-    predSim_obb = np.load(path + '/predSim_obb.npy')
+    
+    
 
     import pickle as pkl
     # import as dictionary
     params = pkl.load(open(path + '/params.pkl', 'rb'))
-    print(params)
+    # dict = {# Simulation parameters
+    #                 "Nsim": self.Nsim,
+    #                 "MAX_SIMULATION_TIME": self.MAX_SIMULATION_TIME,
+    #                 "TIME_STEP": self.TIME_STEP,
+    #                 "PREDICTION_HORIZON": self.PREDICTION_HORIZON,
+    #                 "TRACK_FILE": self.TRACK_FILE,
+    #                 "REFERENCE_VELOCITY": self.REFERENCE_VELOCITY,
+    #                 "REFERENCE_PROGRESS": self.REFERENCE_PROGRESS,
+    #                 "DIST_THRESHOLD": self.DIST_THRESHOLD,
+    #                 "tcomp_sum": self.tcomp_sum,
+    #                 "tcomp_max": self.tcomp_max,
+    #                 "Q_SAFE": self.Q_SAFE,
+    #                 "QE_SAFE": self.QE_SAFE,
+    #                 "Q_OBB": self.Q_OBB,
+    #                 "QE_OBB": self.QE_OBB,
+    #                 "cov_noise": self.cov_noise,
+    #                 "Sref": self.Sref,
+    #                 # Log variables
+    #                 "final_t": self.final_t,
+    #                 "min_dist": self.min_dist,
+    #                 "freeze": self.freeze,
+    #                 "collision": self.collision,
+    #                 "tcomp": self.tcomp,
+    #                 # Simulation variables
+    #                 "simX": self.simX,
+    #                 "simU": self.simU,
+    #                 "sim_obb": self.sim_obb,
+    #                 "predSimX": self.predSimX,
+    #                 "predSim_obb": self.predSim_obb,
+    #                 }
+    simX = params['simX']
+    simU = params['simU']
+    sim_obb = params['sim_obb']
+    predSimX = params['predSimX']
+    predSim_obb = params['predSim_obb']
     tcomp_sum = params['tcomp_sum']
     tcomp_max = params['tcomp_max']
     PREDICTION_HORIZON = params['PREDICTION_HORIZON']
     Nsim = params['Nsim']
     TIME_STEP = params['TIME_STEP']
     TRACK_FILE = params['TRACK_FILE']
+    final_t = params['final_t']
 
     NUM_DISCRETIZATION_STEPS = int(PREDICTION_HORIZON / TIME_STEP)
 
@@ -519,35 +567,107 @@ def plot_results(path):
                                                         TRACK_FILE, simX[0, :])
 
 
-    print(f"Average computation time: { tcomp_sum /  Nsim}")
-    print(f"Maximum computation time: { tcomp_max}")
-    print(f"Average speed: {np.average( simX[:, 3])} m/s")
+    print(f"Average computation time: { tcomp_sum /  final_t * 1e3} ms")
+    print(f"Maximum computation time: { tcomp_max * 1e3} ms")
+    print(f"Average speed: {np.average( simX[:final_t, 3])} m/s")
 
     
-    t = np.linspace(0.0,  Nsim *  PREDICTION_HORIZON /  NUM_DISCRETIZATION_STEPS,  Nsim)
+    t = np.linspace(0.0,  final_t *  PREDICTION_HORIZON /  NUM_DISCRETIZATION_STEPS,  final_t)
 
-    plotTrackProjfinal( simX,  sim_obb, # simulated trajectories
-                            predSimX,  predSim_obb, # predicted trajectories
+    plotTrackProjfinal( simX[:final_t],  sim_obb[:final_t], # simulated trajectories
+                            predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
                             TRACK_FILE, )# SAVE_FIG_NAME
     
     plotDist( simX,  sim_obb,  constraint, t)
 
     plotRes( simX,  simU, t)
 
-    plotTrackProj( simX, sim_obb, # simulated trajectories
-                    predSimX,  predSim_obb, # predicted trajectories
+    plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
+                    predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
                         TRACK_FILE,) # SAVE_GIF_NAME
 
 
     plt.show()
 
+def plot_results_from_multiple_files(path):
+
+    import pickle as pkl
+    ttc = False
+    SCENARIO = 1
+    dt = 0.1
+    # load results
+    
+    freezing = []
+    collisions = []
+    min_dists = []
+    tcomps = []
+    speeds = []
+    min_ttc = []
+    tfinal = []
+    
+
+    for scenario in os.listdir(path):
+        if scenario.endswith(f"{SCENARIO}"):
+            n_tests = 0
+            for seed in os.listdir(os.path.join(path, scenario)):
+                for file in os.listdir(os.path.join(path, scenario, seed)):
+                    n_tests += 1
+                    if file.endswith('params.pkl'):
+                        params = pkl.load(open(os.path.join(path, scenario, seed,'params.pkl'), 'rb'))
+
+                        freezing.append(params['freeze']/params['final_t']*100)
+                        collisions.append(1 if params['collision'] else 0)
+                        min_dists.append(params['min_dist'])
+                        for i in range(len(params['tcomp'])):
+                            tcomps.append(params['tcomp'][i]*1e3)
+                            speeds.append(params['simX'][i,3])
+                        tfinal.append(params['final_t']*dt)
+    
+    axs = [None]*6
+    with sns.axes_style("whitegrid"):
+        fig, axs[0] = plt.subplots(1,1, figsize=(8,5))
+        # % of freezing - boxplot 
+        sns.boxplot(freezing, ax = axs[0], orient='v')
+        axs[0].set_title('Percentage of freezing')
+
+        # % of collisions - boxplot
+        fig, axs[1] = plt.subplots(1,1, figsize=(8,5))
+        sns.boxplot(collisions, ax = axs[1], orient='v')
+        axs[1].set_title('Percentage of collisions')
+
+        # min distance - boxplot
+        fig, axs[2] = plt.subplots(1,1, figsize=(8,5))
+        sns.boxplot( min_dists, ax = axs[2], orient='v')
+        axs[2].set_title('Minimum distance to obstacles [m]')
+
+        # computation time - boxplot
+        fig, axs[3] = plt.subplots(1,1, figsize=(8,5))
+        sns.boxplot(tcomps, ax = axs[3], orient='v')
+        axs[3].set_title('Computation time [ms]')
+
+        # average speed - boxplot
+        fig, axs[4] = plt.subplots(1,1, figsize=(8,5))
+        sns.boxplot(speeds, ax = axs[4], orient='v')
+        axs[4].set_title('Average speed [m/s]')
+
+        # final time - boxplot
+        fig, axs[5] = plt.subplots(1,1, figsize=(8,5))
+        sns.boxplot(tfinal, ax = axs[5], orient='v')
+        axs[5].set_title('Final time [s]')
+
+    plt.show()
+    
+    
+
 if __name__ == "__main__":
 
-    os.chdir('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results')
-    root = tk.Tk()
-    root.withdraw()
+    # os.chdir('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results')
+    # root = tk.Tk()
+    # root.withdraw()
     
-    path = filedialog.askdirectory(title="Select the results directory")
-    if not path:
-        raise ValueError("No directory selected")
-    plot_results(path)
+    # path = filedialog.askdirectory(title="Select the results directory")
+    # if not path:
+    #     raise ValueError("No directory selected")
+    # plot_results(path)
+
+    plot_results_from_multiple_files('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results/dist')

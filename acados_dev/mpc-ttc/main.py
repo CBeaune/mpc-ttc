@@ -101,8 +101,9 @@ class Simulation:
 
     # fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-    def __init__(self, SAVE, params_file, scenario=1):
+    def __init__(self, SAVE, params_file, scenario=1, seed=0):
         self.SCENARIO=scenario
+        self.seed = seed
 
         # Load parameters from JSON file
         with open(f'{params_file}', 'r') as f:
@@ -123,16 +124,17 @@ class Simulation:
         self.QE_OBB = params["QE_OBB"]
         self.Sgoal = params["Sgoal"]
         self.cov_noise = np.diag(params["cov_noise"]) # np.diag([0.05**2, 0.05**2]) #np.diag([0.0**2, 0.0**2])
-        ttc = bool(params["ttc"])
+        self.ttc =bool(params["ttc"])
+        print(f" ttc : {self.ttc}")
     
         if self.SCENARIO == 1:
             self.x0 = np.array([np.random.uniform(-1.0,-0.8), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1),
-                                                0.0, np.random.uniform(0.0, 0.1),
+                                                0.0, np.random.uniform(0.0, 0.05),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.3),
-                                                    -np.pi, np.random.uniform(0.0, 0.1), 
+                                                    -np.pi, np.random.uniform(0.1, 0.25), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 3:
             self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
@@ -166,16 +168,25 @@ class Simulation:
 
 
         [self.Sref, self.constraint, self.model, self.acados_solver, self.nx, self.nu, self.Nsim,
-            self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN] = self.initialize_simulation(ttc)
+            self.simX, self.predSimX, self.simU, self.sim_obb, self.predSim_obb, self.xN] = self.initialize_simulation(self.ttc)
         self.s0 = self.model.x0[0]
         self.obstacles = self.INITIAL_OBSTACLES
         self.obstacles0 = self.INITIAL_OBSTACLES
+
+        # Log variables
+        self.tcomp = np.zeros(self.Nsim)
         self.tcomp_sum = 0
         self.tcomp_max = 0
         self.tpred_sum = 0
         self.t_update = 0
         self.t_obb = 0
+        self.final_t = self.Nsim
         self.min_dist = np.inf
+        self.freeze = 0 # number of time steps the car is stuck
+        self.relaunch = 0 # number of times the car is relaunched after 10 time steps stuck
+        self.collision = False
+
+
         self.track_width = 0.3
 
         self.closest_obstacle_index = np.ones(self.Nsim)*-1
@@ -186,7 +197,8 @@ class Simulation:
         self.n_params = self.n_xobb * self.N_OBSTACLES
 
         if SAVE:
-            self.folder_name =  f"results/{time.strftime('%Y%m%d-%H%M%S')}/"
+            self.folder_name =  f"results/ttc/scenario_{self.SCENARIO}/seed_{self.seed}" if self.ttc \
+                else f"results/dist/scenario_{self.SCENARIO}/seed_{self.seed}/"
             # SAVE GIF and FIGURE
             self.SAVE_GIF_NAME = "sim"
             self.SAVE_FIG_NAME = "sim"
@@ -203,23 +215,42 @@ class Simulation:
         save_path = f"{self.folder_name}"
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        with open(save_path + "/params.pkl", "wb") as f:
-            names = ["Nsim", "MAX_SIMULATION_TIME", "TIME_STEP", "PREDICTION_HORIZON", "TRACK_FILE", "REFERENCE_VELOCITY",
-                      "REFERENCE_PROGRESS", "DIST_THRESHOLD", "tcomp_sum", "tcomp_max", "Q_SAFE", "QE_SAFE", "Q_OBB", "QE_OBB",
-                        "cov_noise", "Sref"]
-            params = [self.Nsim, self.MAX_SIMULATION_TIME, self.TIME_STEP, self.PREDICTION_HORIZON, self.TRACK_FILE,
-                          self.REFERENCE_VELOCITY, self.REFERENCE_PROGRESS, self.DIST_THRESHOLD, self.tcomp_sum, self.tcomp_max,
-                          self.Q_SAFE, self.QE_SAFE, self.Q_OBB, self.QE_OBB, self.cov_noise, self.Sref]
-            dict = {name: param for name, param in zip(names, params)}
+        with open(save_path + "params.pkl", "wb") as f:
+            
+            dict = {# Simulation parameters
+                    "Nsim": self.Nsim,
+                    "MAX_SIMULATION_TIME": self.MAX_SIMULATION_TIME,
+                    "TIME_STEP": self.TIME_STEP,
+                    "PREDICTION_HORIZON": self.PREDICTION_HORIZON,
+                    "TRACK_FILE": self.TRACK_FILE,
+                    "REFERENCE_VELOCITY": self.REFERENCE_VELOCITY,
+                    "REFERENCE_PROGRESS": self.REFERENCE_PROGRESS,
+                    "DIST_THRESHOLD": self.DIST_THRESHOLD,
+                    "tcomp_sum": self.tcomp_sum,
+                    "tcomp_max": self.tcomp_max,
+                    "Q_SAFE": self.Q_SAFE,
+                    "QE_SAFE": self.QE_SAFE,
+                    "Q_OBB": self.Q_OBB,
+                    "QE_OBB": self.QE_OBB,
+                    "cov_noise": self.cov_noise,
+                    "Sref": self.Sref,
+                    # Log variables
+                    "final_t": self.final_t,
+                    "min_dist": self.min_dist,
+                    "freeze": self.freeze,
+                    "collision": self.collision,
+                    "tcomp": self.tcomp,
+                    "seed": self.seed,
+                    # Simulation variables
+                    "simX": self.simX,
+                    "simU": self.simU,
+                    "sim_obb": self.sim_obb,
+                    "predSimX": self.predSimX,
+                    "predSim_obb": self.predSim_obb,
+                    }
 
-            # save all the parameters with names
 
             pickle.dump(dict, f)
-        np.save(save_path + "/simX.npy", self.simX)
-        np.save(save_path + "/simU.npy", self.simU)
-        np.save(save_path + "/sim_obb.npy", self.sim_obb)
-        np.save(save_path + "/predSimX.npy", self.predSimX)
-        np.save(save_path + "/predSim_obb.npy", self.predSim_obb)
     
     def set_init_pose(self, x0):
         """Set the initial pose of the car."""
@@ -329,12 +360,13 @@ class Simulation:
             t0_obb = time.time()
             dist_obstacle_N = np.array([[np.linalg.norm(self.xN[k][:2] - self.predSim_obb[m, i, k, :2]) for m in range(self.N_OBSTACLES)]
                                          for k in range(self.NUM_DISCRETIZATION_STEPS)])
-            # if dist_obstacle_N[0] < self.min_dist:
-            #     self.min_dist = dist_obstacle_N[0]
+            if np.any(dist_obstacle_N[0]) < self.min_dist:
+                self.min_dist = np.min(dist_obstacle_N[0])
             self.t_obb += time.time() - t0_obb
 
-            if np.any(dist_obstacle_N[0]) < 0.0:
+            if np.any(dist_obstacle_N[0]) < 0.15:
                 print("Collision detected")
+                self.collision = True
                 break
 
             t0_pred = time.time()
@@ -346,17 +378,17 @@ class Simulation:
 
 
             for j in range(self.NUM_DISCRETIZATION_STEPS):
-                if idx is not None:
+                # if idx is not None:
 
-                    if self.REFERENCE_VELOCITY - self.obstacles[idx][3] < 0.1:
-                        # print(f"Closest obstacle index: {idx}")
-                        vref = self.obstacles[idx][3]
-                    else :
-                        vref = self.REFERENCE_VELOCITY
-                    sref = self.s0 + vref * self.PREDICTION_HORIZON
-                else:
-                    vref = self.REFERENCE_VELOCITY
-                    sref =  self.s0 + self.REFERENCE_PROGRESS
+                #     if self.REFERENCE_VELOCITY - self.obstacles[idx][3] < 0.1:
+                #         # print(f"Closest obstacle index: {idx}")
+                #         vref = self.obstacles[idx][3]
+                #     else :
+                #         vref = self.REFERENCE_VELOCITY
+                #     sref = self.s0 + vref * self.PREDICTION_HORIZON
+                # else:
+                vref = self.REFERENCE_VELOCITY
+                sref =  self.s0 + self.REFERENCE_PROGRESS
 
                 if i > 0:
                     X = self.acados_solver.get(j, "x")
@@ -395,9 +427,25 @@ class Simulation:
             current_state = self.simX[i-1, :] if i > 0 else self.x0
             self.simU[i, :] = u0
             if status != 0:
-                print(f"acados returned status {status} at time  {i * self.TIME_STEP}")
+                self.freeze += 1
+                # print(f"acados returned status {status} at time  {i * self.TIME_STEP}")
                 self.acados_solver.reset()
                 self.acados_solver.load_iterate("acados_ocp_iterate.json")
+                if self.freeze > 10:
+                    print("Car is stuck")
+                    self.relaunch += 1
+                    self.freeze = 0
+                    relaunch_time = time.time()
+                    if self.ttc:
+                        self.constraint, self.model, self.acados_solver = acados_settings_ttc(self.PREDICTION_HORIZON,
+                                                                                               self.NUM_DISCRETIZATION_STEPS,
+                                                                                                self.TRACK_FILE,self.x0)
+                    else:
+                        self.constraint, self.model, self.acados_solver = acados_settings(self.PREDICTION_HORIZON,
+                                                                                               self.NUM_DISCRETIZATION_STEPS,
+                                                                                                self.TRACK_FILE,self.x0)
+                    relaunch_delay = time.time() - relaunch_time
+                    print(f"Relaunch delay: {relaunch_delay}")
                 self.acados_solver.set(0, "lbx", current_state)
                 self.acados_solver.set(0, "ubx", current_state)
                 self.acados_solver.set(0, "x", current_state)
@@ -406,7 +454,7 @@ class Simulation:
 
                 sref = self.s0 + vref * self.PREDICTION_HORIZON
                 Q = [1, 100, 1, 1, 1, 1, 100,100]
-                Qe = [1, 100, 1, 1, 1, 1]
+                Qe = [1, 100, 1, 1, 100, 100]
 
                 for j in range(self.NUM_DISCRETIZATION_STEPS):
                     self.acados_solver.set(j, "x", current_state)
@@ -447,10 +495,12 @@ class Simulation:
 
             if self.x0[0] > self.Sgoal + 0.1:
                 print("GOAL REACHED")
+                self.final_t = i
                     
                 break
             
             elapsed = time.time() - t
+            self.tcomp[i] = elapsed
             self.tcomp_sum += elapsed
             if elapsed > self.tcomp_max:
                 self.tcomp_max = elapsed
@@ -461,15 +511,15 @@ class Simulation:
             self.sim_obb[:, j, :] = self.sim_obb[:, i, :]
     
     def plot_results(self):
-        print(f"Average computation time: {self.tcomp_sum / self.Nsim}")
-        print(f"Maximum computation time: {self.tcomp_max}")
+        print(f"Average computation time: {self.tcomp_sum / self.final_t *1e3} ms")
+        print(f"Maximum computation time: {self.tcomp_max*1e3} ms")
         # print(f"Average time for prediction {self.tpred_sum / self.Nsim}")
         # print(f"Average time for obstacle detect and prune {self.t_obb/self.Nsim}")
         # print(f"Average time for update {self.t_update/self.Nsim}")
         print(f"Reference speed: {self.REFERENCE_VELOCITY} m/s")
-        print(f"Average speed: {np.average(self.simX[:, 3])} m/s")
-
-        t = np.linspace(0.0, self.Nsim * self.PREDICTION_HORIZON / self.NUM_DISCRETIZATION_STEPS, self.Nsim)
+        print(f"Average speed: {np.average(self.simX[:self.final_t, 3])} m/s")
+        print(self.final_t)
+        t = np.linspace(0.0, self.final_t * self.PREDICTION_HORIZON / self.NUM_DISCRETIZATION_STEPS, self.final_t)
 
         plotTrackProjfinal(self.simX, self.sim_obb, # simulated trajectories
                             self.predSimX, self.predSim_obb, # predicted trajectories
@@ -484,7 +534,7 @@ class Simulation:
 
         plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
                       self.predSimX, self.predSim_obb, # predicted trajectories
-                        self.TRACK_FILE, self.folder_name,self.SAVE_GIF_NAME, idx = self.closest_obstacle_index,
+                        self.TRACK_FILE, self.folder_name, self.SAVE_GIF_NAME, idx = self.closest_obstacle_index,
                         scenario=self.SCENARIO  ) #
 
 
@@ -492,9 +542,17 @@ class Simulation:
             plt.show()
 
 if __name__ == "__main__":
-    np.random.seed(0)
     params_file = 'params/scenario1.json'
-    sim = Simulation(SAVE=False, params_file=params_file)
+        # params_file = 'params/scenario2.json'
+        # params_file = 'params/scenario3.json'
+        # params_file = 'params/scenario1_ttc.json'
+        # params_file = 'params/scenario2_ttc.json'
+        # params_file = 'params/scenario3_ttc.json'
+    # for seed in tqdm.tqdm(range(20), desc="Seeds"):
+    seed = 2
+    np.random.seed(seed)
+    
+    sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
     res = sim.run()
     
     sim.plot_results() 

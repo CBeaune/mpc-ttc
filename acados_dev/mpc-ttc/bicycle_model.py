@@ -202,11 +202,12 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
       # radius of the covering circle /!\ need to be scalar to avoid broadcasting issues
     centers_ego = vertcat(horzcat(x_c - r * cos(psi_c), y_c - r * sin(psi_c)),
                             horzcat(x_c, y_c),
-                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)))
+                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),
+                            horzcat(x_c + 1.5 * r * cos(psi_c), y_c + 1.5 * r * sin(psi_c)))
     centers_obb = np.array([
-        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)]],
-        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)]],
-        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)]]
+        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)],[obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)]],
+        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)],[obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)]],
+        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)],[obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)]]
                             ])
     
     # Ellipses parameters
@@ -223,6 +224,8 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     theta = vertcat(obb_theta, obb1_theta, obb2_theta)
 
     dist_matrix = 100*MX.ones(centers_obb.shape[0]*centers_obb.shape[1]*centers_ego.shape[0])
+
+    print("dist matrix shape: {}".format(dist_matrix.shape))
     for k in range(centers_obb.shape[0]): # loop over obstacles
         for j in range(centers_obb.shape[1]): # loop over covering circles
             for l in range(centers_ego.shape[0]): # loop over covering circles of the ego car
@@ -462,11 +465,12 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
       # radius of the covering circle /!\ need to be scalar to avoid broadcasting issues
     centers_ego = vertcat(horzcat(x_c - r * cos(psi_c), y_c - r * sin(psi_c)),
                             horzcat(x_c, y_c),
-                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)))
+                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),
+                            horzcat(x_c + 1.5* r * cos(psi_c), y_c + 1.5* r * sin(psi_c)))
     centers_obb = np.array([
-        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)]],
-        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)]],
-        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)]]
+        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)],[obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)]],
+        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)],[obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)]],
+        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)],[obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)]]
                             ])
     
     # Ellipses parameters
@@ -483,6 +487,7 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
     theta = vertcat(obb_theta, obb1_theta, obb2_theta)
 
     dist_matrix = 100*MX.ones(centers_obb.shape[0]*centers_obb.shape[1]*centers_ego.shape[0])
+    print("dist matrix shape: {}".format(dist_matrix.shape))
     for k in range(centers_obb.shape[0]): # loop over obstacles
         for j in range(centers_obb.shape[1]): # loop over covering circles
             for l in range(centers_ego.shape[0]): # loop over covering circles of the ego car
@@ -533,7 +538,7 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
     constraint.ttc_min = 0.9 # s
-    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v,dist_matrix,  ttc_matrix)#
+    constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix,  ttc_matrix)#
     # constraint.expr_0 = vertcat()#
 
     # Define model struct
