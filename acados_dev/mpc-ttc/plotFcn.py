@@ -51,13 +51,17 @@ import tqdm
 
 def initplot(filename='LMS_Track.txt', scenario=1):
         #Setup plot
+
     with sns.axes_style("whitegrid"):
         if scenario == 1:
             plt.ylim(bottom=-3.0,top=0.5)
             plt.xlim(left=-1.75,right=1.75)
         elif scenario == 2:
             plt.ylim(bottom=-1.75,top=1.75)
-            plt.xlim(left=-1.25,right=2.5)       
+            plt.xlim(left=-1.25,right=2.5)  
+        elif scenario == 3:
+            plt.ylim(bottom=-0.3,top=2.5)
+            plt.xlim(left=-0.0,right=2.0) 
         plt.ylabel('y[m]')
         plt.xlabel('x[m]')
 
@@ -142,6 +146,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     line, = ax.plot([], [], '-b')
     pred_dots = [ax.plot([], [], 'o', color='r', markersize=3)[0] for _ in range(predX.shape[0])]
 
+
     # Covering circles
     r = 1/LENGTH * (WIDTH**2/4 + LENGTH**2/4)
 
@@ -215,10 +220,9 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     
 
 
-
     def update(i):
-        line.set_data(x[:i], y[:i])
         
+        line.set_data(x[:i], y[:i])
 
         for j in range(predX.shape[1]):
             [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
@@ -456,16 +460,16 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('Distance to obstacles covering ellipses centers')
-        dist=np.zeros((Nsim, N_obb*4*4))
+        dist=np.zeros((Nsim, N_obb*5*3))
         for i in range(Nsim):
             dist_vector = constraint.dist(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
-            for j in range(N_obb*4*4):
+            for j in range(N_obb*5*3):
                 dist[i,j]= dist_vector[j]
         k=0
-        for j in range(0,N_obb*4*4):
-            if j > 15:
+        for j in range(0,N_obb*5*3):
+            if j > 5*3 -1:
                 k = 1 
-            if j > 31:
+            if j > 2*5*3 -1:
                 k = 2
             plt.plot(t,dist[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
         
@@ -479,6 +483,75 @@ def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
                 os.makedirs(save_folder)
             plt.savefig(save_folder + f"{save_name}.png")
 
+def min_dist(rectangles1, rectangles2):
+    def point_to_segment(p, a, b):
+        ab = np.array(b) - np.array(a)
+        ap = np.array(p) - np.array(a)
+        t = np.dot(ap, ab) / np.dot(ab, ab)
+        if t < 0.0:
+            return np.linalg.norm(np.array(p) - np.array(a)), a
+        elif t > 1.0:
+            return np.linalg.norm(np.array(p) - np.array(b)), b
+        projection = np.array(a) + t * ab
+        return np.linalg.norm(np.array(p) - projection), projection
+
+    Nsim = rectangles1.shape[0]
+    min_dists = np.zeros(Nsim)
+
+    for i in range(Nsim):
+        min_dist = float('inf')
+
+        for p1 in rectangles1[i]:
+            for k in range(4):
+                p2, p3 = rectangles2[i, k], rectangles2[i, (k + 1) % 4]
+                dist, _ = point_to_segment(p1, p2, p3)
+                if dist < min_dist:
+                    min_dist = dist
+
+        for p2 in rectangles2[i]:
+            for k in range(4):
+                p1, p3 = rectangles1[i, k], rectangles1[i, (k + 1) % 4]
+                dist, _ = point_to_segment(p2, p1, p3)
+                if dist < min_dist:
+                    min_dist = dist
+
+        min_dists[i] = min_dist
+
+    return min_dists
+
+def get_corners(x, y, alpha, length, width):
+    '''take x, y, alpha, length, width and return the corners of the rectangle'''
+    dx = length / 2
+    dy = width / 2
+
+    rotation_matrix = np.array([[np.cos(alpha), -np.sin(alpha)],
+                                [np.sin(alpha), np.cos(alpha)]])
+
+    corners = [
+        np.array([dx, dy]),
+        np.array([-dx, dy]),
+        np.array([-dx, -dy]),
+        np.array([dx, -dy])
+    ]
+    corners = [rotation_matrix @ corner + np.array([x, y]) for corner in corners]
+    return np.array(corners)
+
+
+
+def plotminDist(simX,sim_obb,t, TRACKFILE):
+    Nsim=t.shape[0]
+    N_obb = sim_obb.shape[0]
+    LENGTH = sim_obb[0,0,4]
+    WIDTH = sim_obb[0,0,5]
+
+    [x, y, alpha, _] = transformProj2Orig(simX[:,0], simX[:,1], simX[:,2], simX[:,3], TRACKFILE)
+    min_dists = np.zeros((N_obb, Nsim))
+    for k in range(N_obb):
+        rectangles1 = np.array([get_corners(x[i],y[i],alpha[i], length=LENGTH, width=WIDTH) for i in range(Nsim)])
+        rectangles2 = np.array([get_corners(sim_obb[k,i,0], sim_obb[k,i,1], sim_obb[k,i,2],length=LENGTH, width=WIDTH) for i in range(Nsim)])
+        min_dists[k] = min_dist(rectangles1, rectangles2)
+    return min_dists
+
 def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
     with sns.axes_style("whitegrid"):
         Nsim=t.shape[0]
@@ -486,16 +559,16 @@ def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('TTC for obstacles covering ellipses centers')
-        ttc=np.ones((Nsim, N_obb*4*4))*1e3
+        ttc=np.ones((Nsim, N_obb*5*3))*1e3
         for i in range(Nsim):
             ttc_vector = constraint.ttc(simX[i,:],np.array(sim_obb[:,i,:]).reshape((27)))
-            for j in range(N_obb*4*4):
+            for j in range(N_obb*5*3):
                 ttc[i,j]= ttc_vector[j]
         k=0
-        for j in range(0,N_obb*4*4):
-            if j > 15:
+        for j in range(0,N_obb*4*3):
+            if j > 5*3 -1 :
                 k = 1 
-            if j > 31:
+            if j > 2*5*3 -1:
                 k = 2
             plt.plot(t,ttc[:,j], color=sns.color_palette()[k], label='Obstacle '+str(k) if j%9==0 else "")
         
@@ -517,36 +590,7 @@ def plot_results(path):
     import pickle as pkl
     # import as dictionary
     params = pkl.load(open(path + '/params.pkl', 'rb'))
-    # dict = {# Simulation parameters
-    #                 "Nsim": self.Nsim,
-    #                 "MAX_SIMULATION_TIME": self.MAX_SIMULATION_TIME,
-    #                 "TIME_STEP": self.TIME_STEP,
-    #                 "PREDICTION_HORIZON": self.PREDICTION_HORIZON,
-    #                 "TRACK_FILE": self.TRACK_FILE,
-    #                 "REFERENCE_VELOCITY": self.REFERENCE_VELOCITY,
-    #                 "REFERENCE_PROGRESS": self.REFERENCE_PROGRESS,
-    #                 "DIST_THRESHOLD": self.DIST_THRESHOLD,
-    #                 "tcomp_sum": self.tcomp_sum,
-    #                 "tcomp_max": self.tcomp_max,
-    #                 "Q_SAFE": self.Q_SAFE,
-    #                 "QE_SAFE": self.QE_SAFE,
-    #                 "Q_OBB": self.Q_OBB,
-    #                 "QE_OBB": self.QE_OBB,
-    #                 "cov_noise": self.cov_noise,
-    #                 "Sref": self.Sref,
-    #                 # Log variables
-    #                 "final_t": self.final_t,
-    #                 "min_dist": self.min_dist,
-    #                 "freeze": self.freeze,
-    #                 "collision": self.collision,
-    #                 "tcomp": self.tcomp,
-    #                 # Simulation variables
-    #                 "simX": self.simX,
-    #                 "simU": self.simU,
-    #                 "sim_obb": self.sim_obb,
-    #                 "predSimX": self.predSimX,
-    #                 "predSim_obb": self.predSim_obb,
-    #                 }
+    
     simX = params['simX']
     simU = params['simU']
     sim_obb = params['sim_obb']
@@ -580,12 +624,20 @@ def plot_results(path):
     
     plotDist( simX,  sim_obb,  constraint, t)
 
+    min_dists = plotminDist(simX, sim_obb, t, TRACK_FILE)
+    plt.figure(figsize=(10,10))
+    for i in range(min_dists.shape[0]):
+        with sns.axes_style("whitegrid"):
+            plt.plot(t, min_dists[i], label=f'Min dist to obstacle {i}')
+    plt.axhline(constraint.dist_obb_min, color='k', linestyle='--', label='min distance allowed')
+    plt.xlabel('t [s]')
+    plt.ylabel('dist [m]')
+
     plotRes( simX,  simU, t)
 
-    plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
-                    predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
-                        TRACK_FILE,) # SAVE_GIF_NAME
-
+    # plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
+    #                 predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
+    #                     TRACK_FILE,) # SAVE_GIF_NAME
 
     plt.show()
 
@@ -625,10 +677,10 @@ def plot_results_from_multiple_files(path):
     
     axs = [None]*6
     with sns.axes_style("whitegrid"):
-        fig, axs[0] = plt.subplots(1,1, figsize=(8,5))
-        # % of freezing - boxplot 
-        sns.boxplot(freezing, ax = axs[0], orient='v', showfliers=False)
-        axs[0].set_title('Percentage of freezing')
+        # fig, axs[0] = plt.subplots(1,1, figsize=(8,5))
+        # # % of freezing - boxplot 
+        # sns.boxplot(freezing, ax = axs[0], orient='v', showfliers=False)
+        # axs[0].set_title('Percentage of freezing')
 
         # % of collisions - boxplot
         fig, axs[1] = plt.subplots(1,1, figsize=(8,5))
@@ -670,4 +722,4 @@ if __name__ == "__main__":
     #     raise ValueError("No directory selected")
     # plot_results(path)
 
-    plot_results_from_multiple_files('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results/dist')
+    plot_results_from_multiple_files('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results/ttc')

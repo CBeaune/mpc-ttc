@@ -157,7 +157,7 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
     # Model bounds
     track_width = 0.3
     r = 1/LENGTH * (WIDTH**2 + LENGTH**2)/4
-    model.n_min = - track_width/2  + r  # right border of the track [m]
+    model.n_min = - track_width/2  - r  # right border of the track [m]
     model.n_max = track_width # middle of the opposite lane [m]
 
     # state bounds
@@ -202,22 +202,22 @@ def bicycle_model(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0])):
       # radius of the covering circle /!\ need to be scalar to avoid broadcasting issues
     centers_ego = vertcat(horzcat(x_c - r * cos(psi_c), y_c - r * sin(psi_c)),
                             horzcat(x_c, y_c),
-                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),
-                            horzcat(x_c + 1.5 * r * cos(psi_c), y_c + 1.5 * r * sin(psi_c)))
+                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),)
     centers_obb = np.array([
-        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)],[obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)]],
-        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)],[obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)]],
-        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)],[obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)]]
+        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)], [obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)], [obb_x -LENGTH * cos(obb_psi), obb_y - LENGTH * sin(obb_psi)]],
+        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)], [obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)], [obb1_x - LENGTH * cos(obb1_psi), obb1_y - LENGTH * sin(obb1_psi)]],
+        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)], [obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)], [obb2_x - LENGTH * cos(obb2_psi), obb2_y - LENGTH * sin(obb2_psi)]]
                             ])
     
     # Ellipses parameters
     constraint.dist_min = 0.0  
-    α_0 = obb_a + 2*r + r #minimum distance between covering circles centers including ellipse axes
-    β_0 = obb_b + 2*r + r
-    α1 = obb1_a + 2*r + r
-    β1 = obb1_b + 2*r + r
-    α2 = obb2_a + 2*r + r
-    β2 = obb2_b + 2*r + r
+    α_0 = obb_a + 2*r #+ 0.5*r #minimum distance between covering circles centers including ellipse axes
+    β_0 = obb_b + 2*r #+ 0.5*r
+    α1 = obb1_a + 2*r #+ 0.5*r
+    β1 = obb1_b + 2*r #+ 0.5*r
+    α2 = obb2_a + 2*r #+ 0.5*r
+    β2 = obb2_b + 2*r #+ 0.5*r
+    constraint.dist_obb_min = 2*r
 
     α = vertcat(α_0, α1, α2)
     β = vertcat(β_0, β1, β2)
@@ -420,7 +420,7 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
     # Model bounds
     track_width = 0.3
     r = 1/LENGTH * (WIDTH**2 + LENGTH**2)/4
-    model.n_min = - track_width/2  + r  # right border of the track [m]
+    model.n_min =  - track_width/2  - r   # right border of the track [m]
     model.n_max = track_width + r  # middle of the opposite lane [m]
 
     # state bounds
@@ -465,22 +465,21 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
       # radius of the covering circle /!\ need to be scalar to avoid broadcasting issues
     centers_ego = vertcat(horzcat(x_c - r * cos(psi_c), y_c - r * sin(psi_c)),
                             horzcat(x_c, y_c),
-                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),
-                            horzcat(x_c + 1.5* r * cos(psi_c), y_c + 1.5* r * sin(psi_c)))
+                            horzcat(x_c + r * cos(psi_c), y_c + r * sin(psi_c)),)
     centers_obb = np.array([
-        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)],[obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)]],
-        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)],[obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)]],
-        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)],[obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)]]
+        [[obb_x - r * cos(obb_psi), obb_y - r * sin(obb_psi)]    , [obb_x, obb_y]  , [obb_x + r * cos(obb_psi), obb_y + r * sin(obb_psi)], [obb_x + LENGTH * cos(obb_psi), obb_y + LENGTH * sin(obb_psi)],[obb_x -LENGTH * cos(obb_psi), obb_y - LENGTH* sin(obb_psi)]],# 
+        [[obb1_x - r * cos(obb1_psi), obb1_y - r * sin(obb1_psi)], [obb1_x, obb1_y], [obb1_x + r * cos(obb1_psi), obb1_y + r * sin(obb1_psi)], [obb1_x + LENGTH * cos(obb1_psi), obb1_y + LENGTH * sin(obb1_psi)],[obb1_x - LENGTH * cos(obb1_psi), obb1_y - LENGTH * sin(obb1_psi)] ],#
+        [[obb2_x - r * cos(obb2_psi), obb2_y - r * sin(obb2_psi)], [obb2_x, obb2_y], [obb2_x + r * cos(obb2_psi), obb2_y + r * sin(obb2_psi)], [obb2_x + LENGTH * cos(obb2_psi), obb2_y + LENGTH * sin(obb2_psi)], [obb2_x - LENGTH * cos(obb2_psi), obb2_y - LENGTH * sin(obb2_psi)]] #
                             ])
-    
     # Ellipses parameters
     constraint.dist_min = 0.0  
-    α_0 = obb_a + 2*r #+ r #minimum distance between covering circles centers including ellipse axes
-    β_0 = obb_b + 2*r #+ r
-    α1 = obb1_a + 2*r #+ r
-    β1 = obb1_b + 2*r #+ r
-    α2 = obb2_a + 2*r #+ r
-    β2 = obb2_b + 2*r #+ r
+    α_0 = obb_a + 2*r + 0.3*r #minimum distance between covering circles centers including ellipse axes
+    β_0 = obb_b + 2*r + 0.3*r
+    α1 = obb1_a + 2*r + 0.3*r
+    β1 = obb1_b + 2*r + 0.3*r
+    α2 = obb2_a + 2*r + 0.3*r
+    β2 = obb2_b + 2*r + 0.3*r
+    constraint.dist_obb_min = 0.3*r
 
     α = vertcat(α_0, α1, α2)
     β = vertcat(β_0, β1, β2)
@@ -530,6 +529,7 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
                 d_dot = 2/d * (A+B)#(x_l - centers_obb[k,j,0]) * (v_x - v_obb_x) + (y_l - centers_obb[k,j,1]) * (v_y - v_obb_y)
                 ttc = if_else(d_dot < 0, (1-d)/d_dot, 100)
                 ttc = if_else(ttc > 100, 100, ttc)
+                ttc = if_else(ttc < 0, 100, ttc)
                 ttc_matrix[k*centers_obb.shape[1]*centers_ego.shape[0] + j*centers_ego.shape[0] + l] = ttc
     constraint.ttc = Function("ttc_matrix", [x, p], [ttc_matrix])
     
@@ -537,7 +537,7 @@ def bicycle_model_ttc(track="LMS_Track6.txt", x0 = np.array([-2, 0, 0, 0.0, 0, 0
     # define constraints struct
     constraint.alat = Function("a_lat", [x, u], [a_lat])
     constraint.pathlength = pathlength
-    constraint.ttc_min = 0.9 # s
+    constraint.ttc_min = 0.75 # s
     constraint.expr = vertcat(a_long, a_lat, n, D, delta, v, dist_matrix,  ttc_matrix)#
     # constraint.expr_0 = vertcat()#
 

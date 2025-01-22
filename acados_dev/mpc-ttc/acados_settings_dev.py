@@ -72,9 +72,9 @@ def acados_settings(Tf, N, track_file, x0):
     ny_e = nx 
 
     n_obb = 3 # number of obstacles
-    n_dist_circle = 4 # number of distance to circle constraints per obstacle
+    n_dist_circle = 5 # number of distance to circle constraints per obstacle
     n_constraints = 6 # number of constraints
-    n_dist_tot = 4 * n_obb * n_dist_circle
+    n_dist_tot = 3 * n_obb * n_dist_circle
     n_ttc_tot = 0
     print('dist constraints ', n_dist_tot )
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
@@ -252,16 +252,16 @@ def acados_settings_ttc(Tf, N, track_file, x0):
     ny_e = nx 
 
     n_obb = 3 # number of obstacles
-    n_dist_circle = 4 # number of distance to circle constraints per obstacle
+    n_dist_circle = 5 # number of distance to circle constraints per obstacle
     n_constraints = 6 # number of constraints
-    n_dist_tot = 4 * n_obb * n_dist_circle
-    n_ttc_tot = 4 * n_obb * n_dist_circle
+    n_dist_tot = 3 * n_obb * n_dist_circle
+    n_ttc_tot = 3 * n_obb * n_dist_circle
     ocp.parameter_values = np.zeros((n_obb*nx_obb,))
     
     print('dist constraints ', n_dist_tot )
     nsbx = 1
     nh = constraint.expr.shape[0]
-    hard_constraints = n_dist_tot + n_ttc_tot + 1 
+    hard_constraints = n_dist_tot  + 1 
     nsh = nh - hard_constraints
     ns = nsh + nsbx
     print('slack constraints ',nsh)
@@ -361,6 +361,7 @@ def acados_settings_ttc(Tf, N, track_file, x0):
     ocp.constraints.lsh = np.zeros(nsh)
     ocp.constraints.ush = np.zeros(nsh)
     ocp.constraints.idxsh = np.array([0, 1, 3, 4, 5 ])
+    ocp.constraints.idxsh = np.concatenate((ocp.constraints.idxsh, np.arange(n_constraints + n_dist_tot, nh)))
 
     # set intial condition
     # ocp.constraints.x0 = model.x0

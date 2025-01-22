@@ -4,10 +4,11 @@ import os
 import numpy as np
 from acados_settings_dev import acados_settings, acados_settings_ttc
 
-from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes, plotTTC
+from plotFcn import plotTrackProj, plotTrackProjfinal, plotDist, plotRes, plotTTC, plotminDist
 from tracks.readDataFcn import getTrack
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import seaborn as sns
 from scipy.linalg import sqrtm, eigh, inv
 import tqdm
 from time2spatial import transformProj2Orig, transformOrig2Proj
@@ -128,31 +129,31 @@ class Simulation:
         print(f" ttc : {self.ttc}")
     
         if self.SCENARIO == 1:
-            self.x0 = np.array([np.random.uniform(-1.0,-0.8), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
+            self.x0 = np.array([np.random.uniform(-1.2,-1.0), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1),
-                                                0.0, np.random.uniform(0.0, 0.05),
+                                                0.0, np.random.uniform(0.0, 0.0),
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
-            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(0.9, 1.1), np.random.uniform(0.2, 0.3),
-                                                    -np.pi, np.random.uniform(0.1, 0.25), 
+            self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.0, 1.1), np.random.uniform(0.3, 0.3),
+                                                    -np.pi, np.random.uniform(0.0,0.0), 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 3:
             self.x0 = np.array([np.random.uniform(0.0, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.45, 1.55), np.random.uniform(0.5, 1.0),
-                                                -np.pi/2, np.random.uniform(0.0, 0.15),
+                                                -np.pi/2, 0.15,
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.7, 1.8), np.random.uniform(-1, -0.5),
-                                                    np.pi/2, np.random.uniform(0.0, 0.1), 
+                                                    np.pi/2, 0.15, 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
         elif self.SCENARIO == 2:
             self.x0 = np.array([np.random.uniform(-0.3, 0.5), np.random.uniform(0.0,0.0), 0.0, 0.0, 0.0, 0.0])
             self.REFERENCE_VELOCITY = np.random.uniform(0.21,0.21)
             self.INITIAL_OBSTACLE_POSITION = np.array([np.random.uniform(1.2,1.3), np.random.uniform(0.5, 1.0),
-                                                -np.pi/2, np.random.uniform(0.0, 0.2),
+                                                -np.pi/2, 0.15,
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0]) # 5e-4, 5e-3, 5e-8
             self.INITIAL_OBSTACLE_POSITION2 = np.array([np.random.uniform(1.57,1.6), np.random.uniform(-1.0, -0.5),
-                                                    np.pi/2, np.random.uniform(0.0, 0.1), 
+                                                    np.pi/2, 0.15, 
                                                 self.OBSTACLE_LENGTH, self.OBSTACLE_WIDTH, 0, 0, 0])
 
         self.REFERENCE_PROGRESS = self.REFERENCE_VELOCITY * self.PREDICTION_HORIZON
@@ -197,7 +198,7 @@ class Simulation:
         self.n_params = self.n_xobb * self.N_OBSTACLES
 
         if SAVE:
-            self.folder_name =  f"results/ttc/scenario_{self.SCENARIO}/seed_{self.seed}" if self.ttc \
+            self.folder_name =  f"results/ttc/scenario_{self.SCENARIO}/seed_{self.seed}/" if self.ttc \
                 else f"results/dist/scenario_{self.SCENARIO}/seed_{self.seed}/"
             # SAVE GIF and FIGURE
             self.SAVE_GIF_NAME = "sim"
@@ -369,7 +370,7 @@ class Simulation:
                 self.min_dist = np.min(dist_obstacle_N[0])
             self.t_obb += time.time() - t0_obb
 
-            if np.any(dist_obstacle_N[0]) < 0.15:
+            if np.any(dist_obstacle_N[0]) < 0.2:
                 print("Collision detected")
                 self.collision = True
                 break
@@ -431,26 +432,27 @@ class Simulation:
             self.simX[i, :] = self.acados_solver.get(0, "x")
             current_state = self.simX[i-1, :] if i > 0 else self.x0
             self.simU[i, :] = u0
+
             if status != 0:
                 self.freeze += 1
                 # print(f"acados returned status {status} at time  {i * self.TIME_STEP}")
                 self.acados_solver.reset()
                 self.acados_solver.load_iterate("acados_ocp_iterate.json")
-                if self.freeze > 10:
-                    print("Car is stuck")
-                    self.relaunch += 1
-                    self.freeze = 0
-                    relaunch_time = time.time()
-                    if self.ttc:
-                        self.constraint, self.model, self.acados_solver = acados_settings_ttc(self.PREDICTION_HORIZON,
-                                                                                               self.NUM_DISCRETIZATION_STEPS,
-                                                                                                self.TRACK_FILE,self.x0)
-                    else:
-                        self.constraint, self.model, self.acados_solver = acados_settings(self.PREDICTION_HORIZON,
-                                                                                               self.NUM_DISCRETIZATION_STEPS,
-                                                                                                self.TRACK_FILE,self.x0)
-                    relaunch_delay = time.time() - relaunch_time
-                    print(f"Relaunch delay: {relaunch_delay}")
+                # if self.freeze > 10:
+                #     print("Car is stuck")
+                #     self.relaunch += 1
+                #     self.freeze = 0
+                #     relaunch_time = time.time()
+                #     if self.ttc:
+                #         self.constraint, self.model, self.acados_solver = acados_settings_ttc(self.PREDICTION_HORIZON,
+                #                                                                                self.NUM_DISCRETIZATION_STEPS,
+                #                                                                                 self.TRACK_FILE,self.x0)
+                #     else:
+                #         self.constraint, self.model, self.acados_solver = acados_settings(self.PREDICTION_HORIZON,
+                #                                                                                self.NUM_DISCRETIZATION_STEPS,
+                #                                                                                 self.TRACK_FILE,self.x0)
+                #     relaunch_delay = time.time() - relaunch_time
+                #     print(f"Relaunch delay: {relaunch_delay}")
                 self.acados_solver.set(0, "lbx", current_state)
                 self.acados_solver.set(0, "ubx", current_state)
                 self.acados_solver.set(0, "x", current_state)
@@ -530,6 +532,14 @@ class Simulation:
                             self.predSimX, self.predSim_obb, # predicted trajectories
                             self.TRACK_FILE,self.folder_name, self.SAVE_FIG_NAME,
                               scenario= self.SCENARIO )#
+        min_dists = plotminDist(self.simX, self.sim_obb, t, self.TRACK_FILE)
+        plt.figure(figsize=(10,10))
+        for i in range(min_dists.shape[0]):
+            with sns.axes_style("whitegrid"):
+                plt.plot(t, min_dists[i], label=f'Min dist to obstacle {i}')
+        plt.axhline(self.constraint.dist_obb_min, color='k', linestyle='--', label='min distance allowed')
+        plt.xlabel('t [s]')
+        plt.ylabel('dist [m]')
         
         plotDist(self.simX, self.sim_obb, self.constraint, t, self.folder_name, "dist")#
 
@@ -547,21 +557,21 @@ class Simulation:
             plt.show()
 
 if __name__ == "__main__":
-    params_file = 'params/scenario1.json'
+    # params_file = 'params/scenario1.json'
     
-    params_file = 'params/scenario2.json'
-    params_file = 'params/scenario3.json'
-    params_file = 'params/scenario1_ttc.json'
-    params_file = 'params/scenario2_ttc.json'
-    params_file = 'params/scenario3_ttc.json'
-    for params_file in [ 'params/scenario1.json', 
+    # params_file = 'params/scenario2.json'
+    # params_file = 'params/scenario3.json'
+    # params_file = 'params/scenario1_ttc.json'
+    # params_file = 'params/scenario2_ttc.json'
+    # params_file = 'params/scenario3_ttc.json'
+    for params_file in [ #'params/scenario1.json', 
                         # 'params/scenario2.json', 
                         # 'params/scenario3.json', 
                         # 'params/scenario1_ttc.json',
-                        #   'params/scenario2_ttc.json',
-                        #     'params/scenario3_ttc.json'
+                          'params/scenario2_ttc.json',
+                            # 'params/scenario3_ttc.json'
                         ]:
-        for seed in tqdm.tqdm(range(1), desc="Seeds"):
+        for seed in tqdm.tqdm(range(1,2), desc="Seeds"):
             np.random.seed(seed)
             
             sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
