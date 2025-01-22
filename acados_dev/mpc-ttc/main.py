@@ -271,13 +271,12 @@ class Simulation:
         x = X_obb0[0] + i * self.TIME_STEP * X_obb0[3] * np.cos(X_obb0[2]) 
         y = X_obb0[1] + i * self.TIME_STEP * X_obb0[3] * np.sin(X_obb0[2]) 
         cov  = np.array([[X_obb0[6], X_obb0[8]], [X_obb0[8], X_obb0[7]]]) + i*self.TIME_STEP*cov_noise
-        return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5], cov[0,0], cov[1,1],cov[1,0]]
+        return [x, y, X_obb0[2], X_obb0[3], X_obb0[4], X_obb0[5], cov[0,0], cov[1,1], cov[1,0]]
     
     def update_obstacle_positions(self, i, obstacles):
         """Update the positions of all obstacles."""
         return [self.evolution_function(obstacle, i, self.cov_noise) for obstacle in obstacles]
     
-
 
     def initialize_simulation(self, ttc=True):
         """Initialize the simulation parameters and structures."""
@@ -384,15 +383,7 @@ class Simulation:
 
 
             for j in range(self.NUM_DISCRETIZATION_STEPS):
-                # if idx is not None:
 
-                #     if self.REFERENCE_VELOCITY - self.obstacles[idx][3] < 0.1:
-                #         # print(f"Closest obstacle index: {idx}")
-                #         vref = self.obstacles[idx][3]
-                #     else :
-                #         vref = self.REFERENCE_VELOCITY
-                #     sref = self.s0 + vref * self.PREDICTION_HORIZON
-                # else:
                 vref = self.REFERENCE_VELOCITY
                 sref =  self.s0 + self.REFERENCE_PROGRESS
 
@@ -407,7 +398,15 @@ class Simulation:
 
                 yref = np.array([self.s0 + (sref - self.s0) * j / self.NUM_DISCRETIZATION_STEPS, 0, 0, vref, 0, 0, 0, 0])
                 self.predSim_obb[:, i, j, :] = obb_J[j]
-                self.acados_solver.set(j, "p", np.array(np.array(obb_J[j]).reshape((self.n_params))))
+                p = np.array(obb_J[j])
+                # print(p)
+                for k in range(self.N_OBSTACLES):
+                    a,b,theta = compute_ellipse_parameters(obb_J[j][k][6], obb_J[j][k][7], obb_J[j][k][8], eta=0.64)
+                    p[k,6] = a
+                    p[k,7] = b
+                    p[k,8] = theta
+
+                self.acados_solver.set(j, "p", p.reshape((self.n_params)))
 
                 # Update the reference state and cost weights
                 self.acados_solver.set(j, "yref", yref)
