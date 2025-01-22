@@ -126,6 +126,7 @@ class Simulation:
         self.Sgoal = params["Sgoal"]
         self.cov_noise = np.diag(params["cov_noise"]) # np.diag([0.05**2, 0.05**2]) #np.diag([0.0**2, 0.0**2])
         self.ttc =bool(params["ttc"])
+        self.eta = params["eta"]
         print(f" ttc : {self.ttc}")
     
         if self.SCENARIO == 1:
@@ -198,8 +199,8 @@ class Simulation:
         self.n_params = self.n_xobb * self.N_OBSTACLES
 
         if SAVE:
-            self.folder_name =  f"results/ttc/scenario_{self.SCENARIO}/seed_{self.seed}/" if self.ttc \
-                else f"results/dist/scenario_{self.SCENARIO}/seed_{self.seed}/"
+            self.folder_name =  f"results/ttc/scenario_{self.SCENARIO}/eta_{self.eta}/seed_{self.seed}/" if self.ttc \
+                else f"results/dist/scenario_{self.SCENARIO}/eta_{self.eta}/seed_{self.seed}/"
             # SAVE GIF and FIGURE
             self.SAVE_GIF_NAME = "sim"
             self.SAVE_FIG_NAME = "sim"
@@ -354,7 +355,7 @@ class Simulation:
             new_obstacles = np.array([self.update_obstacle_positions(j, self.obstacles) for j in range(self.NUM_DISCRETIZATION_STEPS)])
             self.predSim_obb[k, 0, :, :] = new_obstacles[:,k,:]
         
-        cov = np.diag([0.01**2, 0.01**2, 0, 0, 0, 0, 0, 0, 0])
+        cov = np.diag([self.cov_noise[0,0], self.cov_noise[1,1], 0, 0, 0, 0, 0, 0, 0])
 
         self.sim_obb[:, 0, :] = self.obstacles + np.random.multivariate_normal(np.zeros((9,)), cov, self.N_OBSTACLES)
         for i in tqdm.tqdm(range(self.Nsim)):
@@ -401,7 +402,7 @@ class Simulation:
                 p = np.array(obb_J[j])
                 # print(p)
                 for k in range(self.N_OBSTACLES):
-                    a,b,theta = compute_ellipse_parameters(obb_J[j][k][6], obb_J[j][k][7], obb_J[j][k][8], eta=0.64)
+                    a,b,theta = compute_ellipse_parameters(obb_J[j][k][6], obb_J[j][k][7], obb_J[j][k][8], eta=self.eta)
                     p[k,6] = a
                     p[k,7] = b
                     p[k,8] = theta
@@ -553,7 +554,7 @@ class Simulation:
 
 
         if os.environ.get("ACADOS_ON_CI") is None:
-            plt.show()
+            plt.pause(15)
 
 if __name__ == "__main__":
     # params_file = 'params/scenario1.json'
@@ -563,22 +564,24 @@ if __name__ == "__main__":
     # params_file = 'params/scenario1_ttc.json'
     # params_file = 'params/scenario2_ttc.json'
     # params_file = 'params/scenario3_ttc.json'
-    for params_file in [ #'params/scenario1.json', 
-                        # 'params/scenario2.json', 
-                        # 'params/scenario3.json', 
-                        # 'params/scenario1_ttc.json',
-                          'params/scenario2_ttc.json',
-                            # 'params/scenario3_ttc.json'
-                        ]:
-        for seed in tqdm.tqdm(range(1,2), desc="Seeds"):
-            np.random.seed(seed)
-            
-            sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
-            res = sim.run()
-            
-            sim.plot_results() 
-            if res == 0 :
-                print("Simulation failed")
-            else:
-                if sim.folder_name is not None:
-                    sim.save_params()
+    eta_list = ["eta_1s", "eta_2s", "eta_3s"]
+    for eta in eta_list:
+        for params_file in [ #'params/' + eta +'/scenario1.json', 
+                            # 'params/' + eta +'/scenario2.json', 
+                            # 'params/' + eta +'/scenario3.json', 
+                            # 'params/' + eta +'/scenario1_ttc.json',
+                            'params/' + eta +'/scenario2_ttc.json',
+                                # 'params/' + eta +'/scenario3_ttc.json'
+                            ]:
+            for seed in tqdm.tqdm(range(1,2), desc="Seeds"):
+                np.random.seed(seed)
+                
+                sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
+                res = sim.run()
+                
+                sim.plot_results() 
+                if res == 0 :
+                    print("Simulation failed")
+                else:
+                    if sim.folder_name is not None:
+                        sim.save_params()

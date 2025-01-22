@@ -456,7 +456,7 @@ def plotalat(simX,simU,constraint,t):
 def plotDist(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
     with sns.axes_style("whitegrid"):
         Nsim=t.shape[0]
-        N_obb = sim_obb.shape[0]
+        N_obb = 2 #sim_obb.shape[0]
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('Distance to obstacles covering ellipses centers')
@@ -540,7 +540,7 @@ def get_corners(x, y, alpha, length, width):
 
 def plotminDist(simX,sim_obb,t, TRACKFILE):
     Nsim=t.shape[0]
-    N_obb = sim_obb.shape[0]
+    N_obb = 2 #sim_obb.shape[0]
     LENGTH = sim_obb[0,0,4]
     WIDTH = sim_obb[0,0,5]
 
@@ -555,7 +555,7 @@ def plotminDist(simX,sim_obb,t, TRACKFILE):
 def plotTTC(simX,sim_obb,constraint,t, save_folder = None, save_name = None):
     with sns.axes_style("whitegrid"):
         Nsim=t.shape[0]
-        N_obb = sim_obb.shape[0]
+        N_obb = 2 #sim_obb.shape[0]
         
         plt.figure(figsize=(10,10), tight_layout=True)
         plt.title('TTC for obstacles covering ellipses centers')
