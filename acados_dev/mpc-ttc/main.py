@@ -540,6 +540,8 @@ class Simulation:
         plt.axhline(self.constraint.dist_obb_min, color='k', linestyle='--', label='min distance allowed')
         plt.xlabel('t [s]')
         plt.ylabel('dist [m]')
+        plt.legend()
+        plt.savefig(f"{self.folder_name}/min_dist.png")
         
         plotDist(self.simX, self.sim_obb, self.constraint, t, self.folder_name, "dist")#
 
@@ -547,14 +549,14 @@ class Simulation:
 
         plotRes(self.simX, self.simU, t, self.folder_name, "results")
 
-        plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
-                      self.predSimX, self.predSim_obb, # predicted trajectories
-                        self.TRACK_FILE, self.folder_name, self.SAVE_GIF_NAME, idx = self.closest_obstacle_index,
-                        scenario=self.SCENARIO  ) #
+        # plotTrackProj(self.simX,self.sim_obb, # simulated trajectories
+        #               self.predSimX, self.predSim_obb, # predicted trajectories
+        #                 self.TRACK_FILE, self.folder_name, self.SAVE_GIF_NAME, idx = self.closest_obstacle_index,
+        #                 scenario=self.SCENARIO  ) #
 
 
-        if os.environ.get("ACADOS_ON_CI") is None:
-            plt.pause(15)
+        # plt.pause(15)
+        # plt.close('all')
 
 if __name__ == "__main__":
     # params_file = 'params/scenario1.json'
@@ -567,13 +569,13 @@ if __name__ == "__main__":
     eta_list = ["eta_1s", "eta_2s", "eta_3s"]
     for eta in eta_list:
         for params_file in [ #'params/' + eta +'/scenario1.json', 
-                            # 'params/' + eta +'/scenario2.json', 
-                            # 'params/' + eta +'/scenario3.json', 
+                             'params/' + eta +'/scenario2.json', 
+                             'params/' + eta +'/scenario3.json', 
                             # 'params/' + eta +'/scenario1_ttc.json',
-                            'params/' + eta +'/scenario2_ttc.json',
-                                # 'params/' + eta +'/scenario3_ttc.json'
+                             'params/' + eta +'/scenario2_ttc.json',
+                             'params/' + eta +'/scenario3_ttc.json'
                             ]:
-            for seed in tqdm.tqdm(range(1,2), desc="Seeds"):
+            for seed in tqdm.tqdm(range(100), desc="Seeds"):
                 np.random.seed(seed)
                 
                 sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
