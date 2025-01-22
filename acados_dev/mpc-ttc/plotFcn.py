@@ -592,8 +592,8 @@ def plot_results(path):
 def plot_results_from_multiple_files(path):
 
     import pickle as pkl
-    ttc = False
-    SCENARIO = 1
+    ttc = True
+    SCENARIO = 2
     dt = 0.1
     # load results
     
@@ -627,32 +627,32 @@ def plot_results_from_multiple_files(path):
     with sns.axes_style("whitegrid"):
         fig, axs[0] = plt.subplots(1,1, figsize=(8,5))
         # % of freezing - boxplot 
-        sns.boxplot(freezing, ax = axs[0], orient='v')
+        sns.boxplot(freezing, ax = axs[0], orient='v', showfliers=False)
         axs[0].set_title('Percentage of freezing')
 
         # % of collisions - boxplot
         fig, axs[1] = plt.subplots(1,1, figsize=(8,5))
-        sns.boxplot(collisions, ax = axs[1], orient='v')
+        sns.boxplot(collisions, ax = axs[1], orient='v', showfliers=False)
         axs[1].set_title('Percentage of collisions')
 
         # min distance - boxplot
         fig, axs[2] = plt.subplots(1,1, figsize=(8,5))
-        sns.boxplot( min_dists, ax = axs[2], orient='v')
+        sns.boxplot( min_dists, ax = axs[2], orient='v', showfliers=False)
         axs[2].set_title('Minimum distance to obstacles [m]')
 
         # computation time - boxplot
         fig, axs[3] = plt.subplots(1,1, figsize=(8,5))
-        sns.boxplot(tcomps, ax = axs[3], orient='v')
+        sns.boxplot(tcomps, ax = axs[3], orient='v', showfliers=False)
         axs[3].set_title('Computation time [ms]')
 
         # average speed - boxplot
         fig, axs[4] = plt.subplots(1,1, figsize=(8,5))
-        sns.boxplot(speeds, ax = axs[4], orient='v')
+        sns.boxplot(speeds, ax = axs[4], orient='v', showfliers=False)
         axs[4].set_title('Average speed [m/s]')
 
         # final time - boxplot
         fig, axs[5] = plt.subplots(1,1, figsize=(8,5))
-        sns.boxplot(tfinal, ax = axs[5], orient='v')
+        sns.boxplot(tfinal, ax = axs[5], orient='v', showfliers=False)
         axs[5].set_title('Final time [s]')
 
     plt.show()

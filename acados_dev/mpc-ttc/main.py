@@ -350,17 +350,22 @@ class Simulation:
         print(f"Initial obstacle 3 pose: {self.constraint.obb2_pose(np.array(self.obstacles).reshape((self.n_params)))}")
         print(f"Initial distance: {[np.linalg.norm(self.xN[0][:2] - np.array(self.obstacles)[k][:2]) for k in range(self.N_OBSTACLES)]}")
 
-   
+        for k in range(self.N_OBSTACLES):
+            new_obstacles = np.array([self.update_obstacle_positions(j, self.obstacles) for j in range(self.NUM_DISCRETIZATION_STEPS)])
+            self.predSim_obb[k, 0, :, :] = new_obstacles[:,k,:]
+        
+        cov = np.diag([0.01**2, 0.01**2, 0, 0, 0, 0, 0, 0, 0])
 
+        self.sim_obb[:, 0, :] = self.obstacles + np.random.multivariate_normal(np.zeros((9,)), cov, self.N_OBSTACLES)
         for i in tqdm.tqdm(range(self.Nsim)):
-            
-            
+
 
             t = time.time()           
             t0_obb = time.time()
             dist_obstacle_N = np.array([[np.linalg.norm(self.xN[k][:2] - self.predSim_obb[m, i, k, :2]) for m in range(self.N_OBSTACLES)]
                                          for k in range(self.NUM_DISCRETIZATION_STEPS)])
-            if np.any(dist_obstacle_N[0]) < self.min_dist:
+            real_dist_obstacle_N = np.array([np.linalg.norm(self.simX[i, :2] - self.sim_obb[m, i, :2]) for m in range(self.N_OBSTACLES)])
+            if np.any(real_dist_obstacle_N) < self.min_dist:
                 self.min_dist = np.min(dist_obstacle_N[0])
             self.t_obb += time.time() - t0_obb
 
@@ -485,7 +490,7 @@ class Simulation:
             [self.obstacles[0][6], self.obstacles[1][6], self.obstacles[2][6]] = [self.obstacles0[k][6] for k in range(self.N_OBSTACLES)]
             [self.obstacles[0][7], self.obstacles[1][7], self.obstacles[2][7]] = [self.obstacles0[k][7] for k in range(self.N_OBSTACLES)]
             [self.obstacles[0][8], self.obstacles[1][8], self.obstacles[2][8]] = [self.obstacles0[k][8] for k in range(self.N_OBSTACLES)]
-            self.sim_obb[:, i, :] = self.obstacles
+            self.sim_obb[:, i, :] = self.obstacles + np.random.multivariate_normal(np.zeros(9), cov, self.N_OBSTACLES)
             
             self.acados_solver.set(0, "lbx", self.x0)
             self.acados_solver.set(0, "ubx", self.x0)
@@ -543,21 +548,28 @@ class Simulation:
 
 if __name__ == "__main__":
     params_file = 'params/scenario1.json'
-        # params_file = 'params/scenario2.json'
-        # params_file = 'params/scenario3.json'
-        # params_file = 'params/scenario1_ttc.json'
-        # params_file = 'params/scenario2_ttc.json'
-        # params_file = 'params/scenario3_ttc.json'
-    # for seed in tqdm.tqdm(range(20), desc="Seeds"):
-    seed = 2
-    np.random.seed(seed)
     
-    sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
-    res = sim.run()
-    
-    sim.plot_results() 
-    if res == 0 :
-        print("Simulation failed")
-    else:
-        if sim.folder_name is not None:
-            sim.save_params()
+    params_file = 'params/scenario2.json'
+    params_file = 'params/scenario3.json'
+    params_file = 'params/scenario1_ttc.json'
+    params_file = 'params/scenario2_ttc.json'
+    params_file = 'params/scenario3_ttc.json'
+    for params_file in [ 'params/scenario1.json', 
+                        # 'params/scenario2.json', 
+                        # 'params/scenario3.json', 
+                        # 'params/scenario1_ttc.json',
+                        #   'params/scenario2_ttc.json',
+                        #     'params/scenario3_ttc.json'
+                        ]:
+        for seed in tqdm.tqdm(range(1), desc="Seeds"):
+            np.random.seed(seed)
+            
+            sim = Simulation(SAVE=True, params_file=params_file, seed=seed)
+            res = sim.run()
+            
+            sim.plot_results() 
+            if res == 0 :
+                print("Simulation failed")
+            else:
+                if sim.folder_name is not None:
+                    sim.save_params()
