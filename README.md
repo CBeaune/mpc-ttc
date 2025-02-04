@@ -5,32 +5,47 @@
 This project simulates a miniature car navigating a track with dynamic obstacles. The simulation considers prediction horizons, reference velocities, and collision avoidance techniques to model realistic urban scenarios.
 
 ## 🚀 Installation
-
 ### Prerequisites
 - Python 3.8+
 - ACADOS and CASADI installations for python :  [https://docs.acados.org/installation/](https://docs.acados.org/installation/index.html#linux-mac)
-- Required dependencies (install with the command below)
+
+### Other requirements
+To install other dependencies, run:
+```bash 
+pip install -r requirements.txt
+```
+
+
 
 ## 📊 Visualizations
 ### Scenario (S1)
 
-![Scenario (S1)](files/simulation_s1.gif)
+<img src="acados_dev/mpc-ttc/files/scenario1.gif" width="500" />
 
-![Scenario (S2)](files/simulation_s2.gif)
+### Scenario (S2)
+<img src="acados_dev/mpc-ttc/files/scenario2.gif" width="500" />
 
-![Scenario (S3)](files/simulation_s3.gif)
-
-
+### Scenario (S3)
+<img src="acados_dev/mpc-ttc/files/scenario3.gif" width="500" />
 
 
 ## 🔧 Usage
 To run the simulation, execute:
 ```bash
+cd acados_dev/mpc-ttc
 python main.py
 ```
 Alternatively, to specify parameters, use:
 ```bash
-python main.py --params params/scenario1.json
+cd acados_dev/mpc-ttc
+python main.py --params params/scenario1.json 
+```
+Optionnal arguments
+```bash
+  --params   Path to the JSON configuration file
+  --show     Show the plot after running the simulation
+  --save     Save the plot after running the simulation
+  --seed     Seed for the random scenario 
 ```
 
 ## ⚙️ Configuration
@@ -57,7 +72,7 @@ The simulation parameters are stored in JSON files inside the [`params/`](acados
         "eta":0.9973
     }
 ```
-Feel free to test your own parameters and your own scenarios!
+Feel free to test your own parameters and your own scenarios (located in the [`tracks/`](acados_dev/mpc-ttc/tracks/) directory)
 
 ## 🌟 Features
 - 🚀 Predictive control of a miniature car

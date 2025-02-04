@@ -126,6 +126,7 @@ def initplot(filename='LMS_Track6.txt', scenario=1):
             plt.plot([1.76-track_width, 1.76-track_width],[-1, 0.5], '-', color='k',linewidth=.5)
 
         plt.plot(Xref,Yref,'-.',color=sns.color_palette()[2],linewidth=2, label='global planned trajectory')
+        plt.plot([],[], 'o', color=sns.color_palette()[2], label= 'predicted trajectory')
         plt.legend()
     return fig, ax
         
@@ -167,6 +168,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     print(scenario)
     fig, ax = initplot(filename, scenario)
+    ax.set_title(f"Scenario {scenario}: Speed x5")
 
     # heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
     # heatmap.set_clim(0, 0.25)
@@ -261,7 +263,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
 
             pred_dots[j].set_data(x_pred , y_pred)
-            plt.legend()
+            # plt.legend()
             pred_circles1[j].center = (x_pred - r * np.cos(alpha_pred) , y_pred - r * np.sin(alpha_pred))
             pred_circles2[j].center = (x_pred, y_pred)
             pred_circles3[j].center = (x_pred + r * np.cos(alpha_pred), y_pred + r * np.sin(alpha_pred))
@@ -338,14 +340,14 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
 
 
-    ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),10), interval=10, repeat=False)
+    ani = animation.FuncAnimation(fig, update, frames=range(0, len(x), 5), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
 
     plt.show()
     if save_name != None:
         if os.path.exists(save_path) == False:
             os.makedirs(save_path)
-        ani.save(save_path + f"{save_name}.gif", writer=writer)
+        ani.save(save_path + f"/{save_name}.gif", writer=writer)
     
 
 def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
@@ -671,8 +673,8 @@ def plot_results(path):
 
     plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
                     predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
-                        TRACK_FILE, scenario = scenario ) # SAVE_GIF_NAME
-    plt.legend()
+                        TRACK_FILE, scenario = scenario, save_path = path, save_name =SAVE_GIF_NAME ) # SAVE_GIF_NAME
+    # plt.legend()
     plt.show()
 
 def plot_results_from_multiple_files(path):
@@ -741,7 +743,7 @@ def plot_results_from_multiple_files(path):
         sns.boxplot(tfinal, ax = axs[5], orient='v', showfliers=False)
         axs[5].set_title('Final time [s]')
 
-    plt.legend()
+    # plt.legend()
     plt.show()
     
     
@@ -754,7 +756,9 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()
     
-    path = filedialog.askdirectory(title="Select the results directory")
+    SAVE_GIF_NAME = "sim"
+    # path = filedialog.askdirectory(title="Select the results directory")
+    path = '/home/user/Documents/07_Dev/mpc-ttc/acados_dev/mpc-ttc/results_260125/ttc/scenario_3/eta_0.9545/seed_26'
     if not path:
         raise ValueError("No directory selected")
     plot_results(path)

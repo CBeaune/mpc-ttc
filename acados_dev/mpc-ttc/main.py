@@ -9,7 +9,7 @@ def main():
     parser.add_argument("--params",default='params/eta_2s/scenario3_ttc.json' , type=str, help="Path to the JSON configuration file")
     parser.add_argument("--show", action="store_true", help="Show the plot after running the simulation")
     parser.add_argument("--save", action="store_true", help="Save the plot after running the simulation")
-    parser.add_argument("--seed", default = np.random.randint(0, 1000), type=int, help="Seed for the random number generator")
+    parser.add_argument("--seed", default = np.random.randint(0, 1000), type=int, help="Random seed for setting the scenario")
     args = parser.parse_args()
 
     # Load parameters from the specified JSON file
