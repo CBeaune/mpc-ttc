@@ -49,25 +49,27 @@ from matplotlib.patches import Ellipse
 import numpy as np
 import tqdm
 
-def initplot(filename='LMS_Track.txt', scenario=1):
+def initplot(filename='LMS_Track6.txt', scenario=1):
         #Setup plot
-
     with sns.axes_style("whitegrid"):
+        fig, ax = plt.subplots(figsize=(12, 12))
+ 
         if scenario == 1:
-            plt.ylim(bottom=-3.0,top=0.5)
-            plt.xlim(left=-1.75,right=1.75)
+            plt.ylim(bottom=-1.5,top=1.0)
+            plt.xlim(left=-1.,right=2.0)
         elif scenario == 2:
-            plt.ylim(bottom=-1.75,top=1.75)
-            plt.xlim(left=-1.25,right=2.5)  
+            plt.ylim(bottom=-1.5,top=1.0)
+            plt.xlim(left=-1.,right=2.0)
         elif scenario == 3:
-            plt.ylim(bottom=-0.3,top=2.5)
-            plt.xlim(left=-0.0,right=2.0) 
+            filename = 'LMS_Track7.txt'
+            plt.ylim(bottom=-1.0,top=2.5)
+            plt.xlim(left=0.0,right=2.5)
         plt.ylabel('y[m]')
         plt.xlabel('x[m]')
 
         # Plot center line
         [Sref,Xref,Yref,Psiref,Kapparef]=getTrack(filename)
-        plt.plot(Xref,Yref,'-',color='k',linewidth=.5)
+        # plt.plot(Xref,Yref,'-',color='r',linewidth=.5)
 
         # Draw Trackboundaries
         track_width = 0.3
@@ -75,18 +77,29 @@ def initplot(filename='LMS_Track.txt', scenario=1):
         Yboundleft=Yref+track_width/2*np.cos(Psiref)
         Xboundright=Xref+track_width/2*np.sin(Psiref)
         Yboundright=Yref-track_width/2*np.cos(Psiref)
-        plt.plot(Xboundleft,Yboundleft,'--',color='k',linewidth=2)
-        plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
+        if scenario != 3:
+            plt.plot(Xboundleft[:105],Yboundleft[:105],'--',color='k',linewidth=2)
+            plt.plot(Xboundleft[200:],Yboundleft[200:],'--',color='k',linewidth=2)
+            # plt.plot(Xboundleft[105:200],Yboundleft[105:200],'--',color='k',linewidth=2, alpha=0.1)
+            plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
+            plt.plot(Xboundright,-Yboundright+track_width,color='k',linewidth=2)
+        else:
+            plt.plot(Xboundleft[:130],Yboundleft[:130],'--',color='k',linewidth=2)
+            plt.plot(Xboundleft[262:],Yboundleft[262:],'--',color='k',linewidth=2)
+            # plt.plot(Xboundleft[105:200],Yboundleft[105:200],'--',color='k',linewidth=2, alpha=0.1)
+            plt.plot(Xboundright[:100],Yboundright[:100],color='k',linewidth=2)
+            # plt.plot(Xboundright[262:],-Yboundright[262:]+track_width,color='k',linewidth=2)
+
 
         # Draw opposite lane
         if np.all(Kapparef<=0):
             
-            Xboundleft=Xref-track_width*np.sin(Psiref)
-            Yboundleft=Yref+track_width*np.cos(Psiref)
-            Xboundright=Xref-3*track_width/2*np.sin(Psiref)
-            Yboundright=Yref+3*track_width/2*np.cos(Psiref)
-            plt.plot(Xboundleft,Yboundleft,color='k',linewidth=0.5)
-            plt.plot(Xboundright,Yboundright,color='k',linewidth=2)
+            Xboundleft1=Xref-track_width*np.sin(Psiref)
+            Yboundleft1=Yref+track_width*np.cos(Psiref)
+            Xboundright1=Xref-3*track_width/2*np.sin(Psiref)
+            Yboundright1=Yref+3*track_width/2*np.cos(Psiref)
+            plt.plot(Xboundleft1,Yboundleft1,color='k',linewidth=0.5)
+            plt.plot(Xboundright1[200:],Yboundright1[200:],color='k',linewidth=2)
         else:
             Xboundleft1=Xboundleft - 0.3/2
             Yboundleft1=Yboundleft + 0.3/2 
@@ -94,6 +107,28 @@ def initplot(filename='LMS_Track.txt', scenario=1):
             Yboundright1=Yboundleft + 2*0.3/2
             plt.plot(Xboundleft1,Yboundleft1,color='k',linewidth=0.5)
             plt.plot(Xboundright1,Yboundright1,color='k',linewidth=2)
+
+        # plot symmetric wrt axis X
+        if scenario !=3:
+            plt.plot(Xref[90:300],-Yref[90:300]+track_width,'-',color='k',linewidth=.5)
+            plt.plot(Xboundleft[90:300]+track_width/2,-Yboundleft[90:300]+track_width/2,'-',color='k',linewidth=.5)
+            plt.plot([1.25, 1.25],[-0.3, 0.6], '-', color='k',linewidth=.5)
+            plt.plot([1.55, 1.55],[-0.3, 0.6], '-', color='k',linewidth=.5)
+            plt.plot([1.4, 1.4],[0.4, 1.5], '--', color='k',linewidth=2)
+            plt.plot([1.7, 1.7],[-0.3, 1.5], '-', color='k',linewidth=2)
+        else:
+            plt.plot(Xref[90:320],-Yref[90:320]+track_width,'-',color='k',linewidth=.5)
+            plt.plot(Xboundleft[90:300]-track_width/2,-Yboundleft[90:300]+track_width/2,'-',color='k',linewidth=.5)
+            plt.plot(Xboundright1[90:300],-Yboundright1[90:300]+track_width,'-',color='k',linewidth=2)
+            plt.plot([1.76+track_width/2, 1.76+track_width/2],[-1, 2.5], '-', color='k',linewidth=2)
+            plt.plot([1.76-track_width/2, 1.76-track_width/2],[-1, -0.17], '--', color='k',linewidth=2)
+            plt.plot([1.76, 1.76],[0.0, 0.5], '-', color='k',linewidth=.5)
+            plt.plot([1.76-track_width, 1.76-track_width],[-1, 0.5], '-', color='k',linewidth=.5)
+
+        plt.plot(Xref,Yref,'-.',color=sns.color_palette()[2],linewidth=2, label='global planned trajectory')
+        plt.legend()
+    return fig, ax
+        
 
 
 def plotTrackProj(simX, sim_obb, # simulated trajectories
@@ -129,13 +164,9 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     WIDTH = sim_obb[0,0,5]
     
     # plot racetrack map
-    with sns.axes_style("whitegrid"):
-        if fig == None:
-            REAL_TIME_PLOTTING = False
-            fig, ax = plt.subplots(figsize=(10, 10))
-        else:
-            REAL_TIME_PLOTTING = True
-    initplot(filename, scenario)
+
+    print(scenario)
+    fig,ax = initplot(filename, scenario)
 
     heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
     heatmap.set_clim(0, 0.25)
@@ -306,8 +337,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),10), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
-    if not REAL_TIME_PLOTTING:
-        plt.show()
+    plt.show()
     if save_name != None:
         if os.path.exists(save_path) == False:
             os.makedirs(save_path)
@@ -590,6 +620,9 @@ def plot_results(path):
     import pickle as pkl
     # import as dictionary
     params = pkl.load(open(path + '/params.pkl', 'rb'))
+    seed = path.split('/')[-1]
+    eta = path.split('/')[-2]
+    scenario = int(path.split('/')[-3].split('_')[-1])
     
     simX = params['simX']
     simU = params['simU']
@@ -618,26 +651,26 @@ def plot_results(path):
     
     t = np.linspace(0.0,  final_t *  PREDICTION_HORIZON /  NUM_DISCRETIZATION_STEPS,  final_t)
 
-    plotTrackProjfinal( simX[:final_t],  sim_obb[:final_t], # simulated trajectories
-                            predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
-                            TRACK_FILE, )# SAVE_FIG_NAME
+    # plotTrackProjfinal( simX[:final_t],  sim_obb[:final_t], # simulated trajectories
+    #                         predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
+    #                         TRACK_FILE,scenario = scenario )# SAVE_FIG_NAME
     
-    plotDist( simX,  sim_obb,  constraint, t)
+    # plotDist( simX,  sim_obb,  constraint, t)
 
-    min_dists = plotminDist(simX, sim_obb, t, TRACK_FILE)
-    plt.figure(figsize=(10,10))
-    for i in range(min_dists.shape[0]):
-        with sns.axes_style("whitegrid"):
-            plt.plot(t, min_dists[i], label=f'Min dist to obstacle {i}')
-    plt.axhline(constraint.dist_obb_min, color='k', linestyle='--', label='min distance allowed')
-    plt.xlabel('t [s]')
-    plt.ylabel('dist [m]')
+    # min_dists = plotminDist(simX, sim_obb, t, TRACK_FILE)
+    # plt.figure(figsize=(10,10))
+    # for i in range(min_dists.shape[0]):
+    #     with sns.axes_style("whitegrid"):
+    #         plt.plot(t, min_dists[i], label=f'Min dist to obstacle {i}')
+    # plt.axhline(constraint.dist_obb_min, color='k', linestyle='--', label='min distance allowed')
+    # plt.xlabel('t [s]')
+    # plt.ylabel('dist [m]')
 
-    plotRes( simX,  simU, t)
+    # plotRes( simX,  simU, t)
 
-    # plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
-    #                 predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
-    #                     TRACK_FILE,) # SAVE_GIF_NAME
+    plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
+                    predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
+                        TRACK_FILE, scenario = scenario ) # SAVE_GIF_NAME
 
     plt.show()
 
@@ -713,13 +746,15 @@ def plot_results_from_multiple_files(path):
 
 if __name__ == "__main__":
 
-    # os.chdir('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results')
-    # root = tk.Tk()
-    # root.withdraw()
+    # initplot(scenario=3)
+    # plt.show()
+    os.getcwd()
+    root = tk.Tk()
+    root.withdraw()
     
-    # path = filedialog.askdirectory(title="Select the results directory")
-    # if not path:
-    #     raise ValueError("No directory selected")
-    # plot_results(path)
+    path = filedialog.askdirectory(title="Select the results directory")
+    if not path:
+        raise ValueError("No directory selected")
+    plot_results(path)
 
-    plot_results_from_multiple_files('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results/ttc')
+    # plot_results_from_multiple_files('/home/user/Documents/07_Dev/test_simu_trajectoires/acados_dev/mpc-ttc/results/ttc')

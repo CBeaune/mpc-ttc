@@ -6,12 +6,12 @@ __pycache__*
 *.m
 *.asv
 c_generated_code
-results/*
+results*/
 .gitignore
 *.npy
 *.pkl
 *.png
-*.pdf
+
 sim*
 acados_ocp*
 *.json
