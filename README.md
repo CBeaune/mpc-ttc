@@ -34,7 +34,7 @@ python main.py --params params/scenario1.json
 ```
 
 ## ⚙️ Configuration
-The simulation parameters are stored in JSON files inside the [`params/`](params/) directory. Example:
+The simulation parameters are stored in JSON files inside the [`params/`](acados_dev/mpc-ttc/params/) directory. Example:
 ```json
 {
         "TRACK_FILE": "LMS_Track7.txt",
