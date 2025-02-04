@@ -166,16 +166,17 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
     # plot racetrack map
 
     print(scenario)
-    fig,ax = initplot(filename, scenario)
+    fig, ax = initplot(filename, scenario)
 
-    heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
-    heatmap.set_clim(0, 0.25)
+    # heatmap = ax.scatter(x, y, c=v, cmap=cm.YlOrRd, edgecolor='none', marker='o', s=10)
+    # heatmap.set_clim(0, 0.25)
     color_pred = sns.color_palette("flare", predX.shape[1])
     ax.set_aspect('equal', 'box')
 
     # Prepare objects for updating instead of re-creating
     line, = ax.plot([], [], '-b')
-    pred_dots = [ax.plot([], [], 'o', color='r', markersize=3)[0] for _ in range(predX.shape[0])]
+    pred_dots = [ax.plot([], [], '-o', color=sns.color_palette()[3], markersize=3, label = "predicted trajectory" if i==0 else None)
+                 [0] for i in range(predX.shape[0])]
 
 
     # Covering circles
@@ -253,12 +254,14 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     def update(i):
         
-        line.set_data(x[:i], y[:i])
+        # line.set_data(x[:i], y[:i])
+
 
         for j in range(predX.shape[1]):
             [x_pred, y_pred, alpha_pred, _] = transformProj2Orig(predX[i, j, 0], predX[i, j, 1], predX[i, j, 2], predX[i, j, 3], filename)
 
             pred_dots[j].set_data(x_pred , y_pred)
+            plt.legend()
             pred_circles1[j].center = (x_pred - r * np.cos(alpha_pred) , y_pred - r * np.sin(alpha_pred))
             pred_circles2[j].center = (x_pred, y_pred)
             pred_circles3[j].center = (x_pred + r * np.cos(alpha_pred), y_pred + r * np.sin(alpha_pred))
@@ -337,6 +340,7 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
 
     ani = animation.FuncAnimation(fig, update, frames=range(0, len(x),10), interval=10, repeat=False)
     writer = PillowWriter(fps=10)
+
     plt.show()
     if save_name != None:
         if os.path.exists(save_path) == False:
@@ -368,12 +372,9 @@ def plotTrackProjfinal(simX, sim_obb, # simulated trajectories
     LENGTH = sim_obb[0,0,4]
     WIDTH = sim_obb[0,0,5]
     
-    
-    # plot racetrack map
-    plt.figure(figsize=(10,10))
 
 
-    initplot(filename, scenario)
+    fig, ax = initplot(filename, scenario)
     
 
     color = sns.color_palette("flare", x.shape[0])
@@ -671,7 +672,7 @@ def plot_results(path):
     plotTrackProj( simX[:final_t], sim_obb[:final_t], # simulated trajectories
                     predSimX[:final_t],  predSim_obb[:final_t], # predicted trajectories
                         TRACK_FILE, scenario = scenario ) # SAVE_GIF_NAME
-
+    plt.legend()
     plt.show()
 
 def plot_results_from_multiple_files(path):
@@ -740,6 +741,7 @@ def plot_results_from_multiple_files(path):
         sns.boxplot(tfinal, ax = axs[5], orient='v', showfliers=False)
         axs[5].set_title('Final time [s]')
 
+    plt.legend()
     plt.show()
     
     

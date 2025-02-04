@@ -12,7 +12,7 @@ results*/
 *.pkl
 *.png
 
-sim*
+sim.*
 acados_ocp*
 *.json
 *.csv
