@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 
 
-## 📊 Visualizations
+## 🎬 Visualizations
 ### Scenario (S1)
 
 <img src="acados_dev/mpc-ttc/files/scenario1.gif" width="500" />

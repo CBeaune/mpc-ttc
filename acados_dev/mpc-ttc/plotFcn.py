@@ -35,6 +35,7 @@ from time2spatial import transformProj2Orig,transformOrig2Proj
 from matplotlib import cm
 import matplotlib.animation as animation
 from matplotlib.animation import PillowWriter
+import matplotlib.patches as patches
 
 import tkinter as tk
 from tkinter import filedialog
@@ -126,7 +127,9 @@ def initplot(filename='LMS_Track6.txt', scenario=1):
             plt.plot([1.76-track_width, 1.76-track_width],[-1, 0.5], '-', color='k',linewidth=.5)
 
         plt.plot(Xref,Yref,'-.',color=sns.color_palette()[2],linewidth=2, label='global planned trajectory')
-        plt.plot([],[], 'o', color=sns.color_palette()[2], label= 'predicted trajectory')
+        plt.plot([],[], 'o', color=sns.color_palette()[3], label= 'predicted trajectory')
+        ax.add_artist(patches.Rectangle((0.0, 0.0), 0.0, 0.0, fill=False, edgecolor=sns.color_palette()[3], 
+                                        linewidth=2, label='ego-vehicle'))
         plt.legend()
     return fig, ax
         
@@ -253,7 +256,10 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
             ax.add_patch(rect)
     
 
-
+    norm = plt.Normalize(0, predX.shape[1])
+    sm = plt.cm.ScalarMappable(cmap=sns.color_palette("flare", as_cmap=True), norm=norm)
+    colorbar = plt.colorbar(sm, ax=ax)
+    colorbar.set_label("Predicted Timesteps")
     def update(i):
         
         # line.set_data(x[:i], y[:i])
@@ -279,6 +285,8 @@ def plotTrackProj(simX, sim_obb, # simulated trajectories
                 pred_circles4[j].set_alpha(0.5)
                 pred_circles4[j].fill=True
                 pred_rects[j].set_alpha(1.0)
+                pred_rects[j].set_color(sns.color_palette()[3])
+                pred_rects[j].set_linewidth(2)
 
             for k in range(predobbX.shape[0]): # for each obstacle
                 [x_pred_obb, y_pred_obb, alpha_pred_obb] = [predobbX[k, i, j, 0], predobbX[k, i, j, 1], predobbX[k, i, j, 2]]
@@ -758,7 +766,7 @@ if __name__ == "__main__":
     
     SAVE_GIF_NAME = "sim"
     # path = filedialog.askdirectory(title="Select the results directory")
-    path = '/home/user/Documents/07_Dev/mpc-ttc/acados_dev/mpc-ttc/results_260125/ttc/scenario_3/eta_0.9545/seed_26'
+    path = '/home/user/Documents/07_Dev/mpc-ttc/acados_dev/mpc-ttc/results_260125/ttc/scenario_2/eta_0.9545/seed_20'
     if not path:
         raise ValueError("No directory selected")
     plot_results(path)
