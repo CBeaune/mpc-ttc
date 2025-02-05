@@ -20,13 +20,13 @@ pip install -r requirements.txt
 ## 🎬 Visualizations
 ### Scenario (S1)
 
-<img src="acados_dev/mpc-ttc/files/scenario1.gif" width="500" />
+<img src="acados_dev/mpc-ttc/files/scenario1.gif" width="600" />
 
 ### Scenario (S2)
-<img src="acados_dev/mpc-ttc/files/scenario2.gif" width="500" />
+<img src="acados_dev/mpc-ttc/files/scenario2.gif" width="600" />
 
 ### Scenario (S3)
-<img src="acados_dev/mpc-ttc/files/scenario3.gif" width="500" />
+<img src="acados_dev/mpc-ttc/files/scenario3.gif" width="600" />
 
 
 ## 🔧 Usage
